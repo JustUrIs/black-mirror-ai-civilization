@@ -31,6 +31,8 @@
   "gleam_inicial": 12.0,
   "starting_inventory": [
     {"id": "papel", "tipo": "consumible"},
-    {"id": "lapiz", "tipo": "consumible"}
+    {"id": "lapiz", "tipo": "consumible"},
+    {"id": "medialuna_arendt_a", "es_comestible": true, "calorias": 30},
+    {"id": "medialuna_arendt_b", "es_comestible": true, "calorias": 30}
   ]
 }

@@ -29,5 +29,8 @@
     "incansable", "humilde", "molestoso", "irreverente", "honesto"
   ],
   "gleam_inicial": 5.0,
-  "starting_inventory": []
+  "starting_inventory": [
+    {"id": "pan_socrates_a", "es_comestible": true, "calorias": 30},
+    {"id": "pan_socrates_b", "es_comestible": true, "calorias": 30}
+  ]
 }

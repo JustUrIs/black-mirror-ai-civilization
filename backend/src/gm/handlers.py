@@ -143,9 +143,12 @@ class EatHandler:
         if not ok:
             return ok, err
         item_id = params.get("item")
-        if not item_id:
-            return False, "EAT requiere parametro 'item'."
         inv = list(agent.inventario or [])
+        if item_id in (None, "", "ANY", "any", "cualquiera"):
+            match = next((it for it in inv if it.get("es_comestible")), None)
+            if match is None:
+                return False, "no tenes nada comestible en inventario."
+            return True, ""
         match = next((it for it in inv if it.get("id") == item_id), None)
         if match is None:
             return False, f"item '{item_id}' no esta en tu inventario {[i.get('id') for i in inv]}."
@@ -154,17 +157,20 @@ class EatHandler:
         return True, ""
 
     def apply(self, agent: Agent, params: dict, ctx: WorldContext) -> str:
-        item_id = params["item"]
+        item_id = params.get("item")
         inv = list(agent.inventario or [])
-        idx = next(i for i, it in enumerate(inv) if it.get("id") == item_id)
+        if item_id in (None, "", "ANY", "any", "cualquiera"):
+            idx = next(i for i, it in enumerate(inv) if it.get("es_comestible"))
+        else:
+            idx = next(i for i, it in enumerate(inv) if it.get("id") == item_id)
         item = inv.pop(idx)
-        calorias = float(item.get("calorias", 10))
+        calorias = float(item.get("calorias", 20))
         necesidades = dict(agent.necesidades)
         necesidades["hambre"] = max(0.0, necesidades.get("hambre", 0) - calorias)
         agent.necesidades = necesidades
         agent.inventario = inv
         ctx.session.add(agent)
-        return f"comio {item_id} (-{calorias} hambre)"
+        return f"comio {item.get('id')} (-{calorias} hambre)"
 
 
 class WorkHandler:

@@ -509,6 +509,47 @@ def world_objects():
         ]
 
 
+@app.post("/admin/revive")
+def admin_revive(payload: dict):
+    """Creator revive dead agent(s). Restore salud + reset needs + alive=True.
+
+    Body: {"agent_id"?: str}  // si None: revive todos los muertos
+    """
+    agent_id = payload.get("agent_id")
+    revived = []
+    with get_session() as s:
+        q = s.query(Agent)
+        if agent_id:
+            q = q.filter(Agent.id == agent_id)
+        else:
+            q = q.filter(Agent.alive == False)  # noqa: E712
+        ws = s.get(WorldState, 1)
+        tick = (ws.tick_actual or 0) if ws else 0
+        for a in q.all():
+            a.alive = True
+            a.salud = 100.0
+            a.necesidades = {
+                "hambre": 20.0, "energia": 80.0, "sed": 10.0,
+                "sueno": 5.0, "social": 50.0,
+            }
+            a.sleeping_until_tick = 0
+            a.in_transit = None
+            # Restore food in inventory
+            inv = list(a.inventario or [])
+            inv.append({"id": f"medialuna_revive_{a.id}", "es_comestible": True, "calorias": 30})
+            inv.append({"id": f"agua_revive_{a.id}", "es_bebible": True})
+            a.inventario = inv
+            s.add(a)
+            s.add(ActionLog(
+                tick=tick, agent_id="creator", action_type="REVIVE",
+                params={"target": a.id}, status="accept",
+                side_effect_summary=f"creator revivió a {a.id} (+comida +agua)",
+            ))
+            revived.append(a.id)
+        s.commit()
+    return {"revived": revived}
+
+
 @app.post("/admin/move_object")
 def admin_move_object(payload: dict):
     """Creator drag-drop: move existing WorldObject to another location."""

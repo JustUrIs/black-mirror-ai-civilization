@@ -1,13 +1,18 @@
-"""Day 3 scripted policies for famous agents — personality-aligned cycles.
+"""Day 3 scripted policies for famous agents — personality-aligned cycles
+with food/water survival behavior + content variation.
 
-Each famoso tiene una rutina ciclica de acciones consistente con su seed:
-- Borges: biblioteca -> escribe/lee -> cafe -> habla -> reflexiona
-- Sócrates: plaza -> habla con quien este -> mercado -> trabaja -> plaza
-- Arendt: cafe -> escribe/propone ley -> plaza -> habla -> reflexiona
+Each famoso cycles through realistic routines:
+- comer/beber cuando hambre/sed altos
+- producir artefactos con variación (no copy-paste repetitivo)
+- alinear acciones con personalidad seed
 
-Cuando el queue se vacia, se rellena. Day 5+ LLM-driven reemplaza esto.
+Survival: cada ciclo intercala GATHER (food/water del location actual o
+mercado) + EAT/DRINK. Esto evita que mueran de hambre tras ~95 ticks.
+
+Day 5+ LLM-driven reemplaza estos ciclos.
 """
 import logging
+import random
 from .world_loop import ScriptedAgentPolicy
 from ..gm.actions import Action
 
@@ -15,117 +20,145 @@ from ..gm.actions import Action
 log = logging.getLogger("famous_policies")
 
 
-BORGES_LIBRO_CONTENIDO = (
-    "El espejo y el papel comparten la mansa terquedad de devolverte lo que les diste. "
-    "Pero el espejo lo hace al instante, sin memoria. El papel, en cambio, espera. "
-    "Espera el dia en que otro lo lea y entienda algo que vos no entendiste al escribirlo. "
-    "Esa demora se llama, a veces, civilizacion."
-)
+# Variaciones de contenido para evitar repetición visible
+BORGES_BOOK_VARIANTS = [
+    ("El espejo y el papel",
+     "El espejo y el papel comparten la mansa terquedad de devolverte lo que les diste. "
+     "Pero el espejo lo hace al instante, sin memoria. El papel, en cambio, espera. "
+     "Espera el dia en que otro lo lea y entienda algo que vos no entendiste al escribirlo. "
+     "Esa demora se llama, a veces, civilizacion."),
+    ("Sobre los nombres",
+     "Un nombre no describe a la persona; la encierra. Quien acepta un nombre acepta una jaula. "
+     "Quien lo cambia rompe esa jaula pero entra en otra. El unico que escapa es el que se niega "
+     "a tener un nombre. Y ese, por definicion, no podemos nombrar."),
+    ("Inventario de un cafe",
+     "Sobre la mesa hay una taza vacia, dos servilletas, una moneda de gleam con la cara borrosa, "
+     "y un papel donde alguien escribio una palabra y la tacho. El que se sienta despues hereda "
+     "ese tachado mas que cualquier herencia visible. La ciudad consiste en esa transferencia."),
+    ("La biblioteca y la memoria",
+     "Una biblioteca no contiene libros: contiene lectores que vendran. Cada anaquel es una "
+     "promesa hecha a alguien que todavia no nacio. Esa promesa es la unica forma de inmortalidad "
+     "que conozco. Por eso entro aca cada manana sin esperanza pero con disciplina."),
+    ("Sobre dos espejos enfrentados",
+     "Dos espejos enfrentados producen un pasillo infinito de copias. Cada copia es ligeramente "
+     "mas pequena. En la quinta o sexta version del reflejo se nota algo que la primera nego: "
+     "el cansancio. Como si solo el infinito tuviera derecho a estar cansado."),
+]
 
-BORGES_LIBRO_2 = (
-    "Sobre los nombres. Un nombre no describe a la persona; la encierra. "
-    "Quien acepta un nombre acepta una jaula. Quien lo cambia rompe esa jaula "
-    "pero entra en otra. El unico que escapa es el que se niega a tener un nombre. "
-    "Y ese, por definicion, no podemos nombrar."
-)
+ARENDT_LAW_VARIANTS = [
+    ("Ley de la Voz Escuchada",
+     "Toda voz tiene derecho a ser escuchada al menos una vez antes de que se decida lo que "
+     "afecta a quien la posee. Esta regla precede a cualquier mayoria. Sin ella, no hay "
+     "republica posible. Quien la viole pierde derecho de votar por dos ciclos."),
+    ("Ley del Pan Comun",
+     "Cuando hay menos pan que personas, se reparte en partes iguales hasta que la escasez "
+     "termine. Nadie come dos veces antes de que todos hayan comido al menos una. El que "
+     "acumule mas alla del dia debe declararlo en plaza al amanecer siguiente."),
+    ("Ley del Silencio del Amanecer",
+     "Entre la luna nueva y el primer amanecer del dia siguiente, ningun habitante hablara "
+     "en voz alta en espacios publicos. Esta restriccion es voluntaria pero ratificada: el "
+     "silencio compartido es la unica liturgia republicana que no requiere creencia."),
+]
 
-ARENDT_LEY_TEXTO = (
-    "Toda voz tiene derecho a ser escuchada al menos una vez antes de que se decida "
-    "lo que afecta a quien la posee. Esta regla precede a cualquier mayoria. Sin ella, "
-    "no hay republica posible. Quien la viole pierde su derecho de votar por dos ciclos."
-)
+ARENDT_RITUAL_VARIANTS = [
+    ("Lectura del Atardecer", "luna llena al atardecer",
+     "Una vez por mes los habitantes que escribieron leen en voz alta un fragmento en la plaza. "
+     "El resto escucha sin responder. La lectura termina cuando se hace de noche."),
+    ("Pan Compartido", "luna creciente",
+     "Cada quien lleva un pan al mercado y lo deja en la mesa central sin nombre. Despues come "
+     "el pan que otro dejo. Sin gratitud explicita, sin deuda."),
+]
 
-ARENDT_RITUAL_DESC = (
-    "Una vez por mes, en el atardecer, los habitantes que escribieron ese mes "
-    "leen en voz alta un fragmento de su obra en la plaza. El resto escucha en silencio."
-)
+
+def _interleave_eat(actions, every=4):
+    """Intercala EAT/DRINK + GATHER (reabastece) cada N pasos para survival.
+
+    Estrategia: come lo que tenga en inventario (EatHandler con item='ANY').
+    Cada N acciones, MOVE a mercado, GATHER comida, GATHER agua, EAT, DRINK.
+    """
+    out = []
+    for i, a in enumerate(actions):
+        out.append(a)
+        if (i + 1) % every == 0:
+            out.append(Action(type="EAT", params={"item": "ANY"}))     # come lo que tenga
+            out.append(Action(type="MOVE", params={"destino": "mercado_bonpland"}))
+            out.append(Action(type="GATHER", params={"objeto": "puesto_comida"}))
+            out.append(Action(type="DRINK", params={"fuente": "puesto_agua"}))
+    return out
 
 
 def cycle_borges():
-    """Ciclo: bibliotecaria -> escribir/leer -> cafe -> hablar -> reflexionar -> repetir"""
-    return [
+    variant = random.choice(BORGES_BOOK_VARIANTS)
+    return _interleave_eat([
         Action(type="READ", params={"libro_id": "libro_borges_pre"}),
-        Action(type="WORK", params={}),  # solo si en cafe; sino reject
-        Action(type="WRITE_BOOK", params={
-            "titulo": "El espejo y el papel",
-            "contenido_full": BORGES_LIBRO_CONTENIDO,
-        }),
+        Action(type="WORK", params={}),
+        Action(type="WRITE_BOOK", params={"titulo": variant[0], "contenido_full": variant[1]}),
         Action(type="MOVE", params={"destino": "plaza_italia"}),
         Action(type="TALK", params={
             "agente": "socrates",
-            "contenido": "Sócrates, escribi algo sobre el papel y el espejo.",
+            "contenido": f"Socrates, escribi sobre {variant[0].lower()}. Te lo presto si queres.",
         }),
         Action(type="MOVE", params={"destino": "cafe_palermo"}),
         Action(type="WORK", params={}),
-        Action(type="WRITE_BOOK", params={
-            "titulo": "Sobre los nombres",
-            "contenido_full": BORGES_LIBRO_2,
-        }),
         Action(type="REFLECT", params={
-            "prompt_interno": "que escribi y por que. el papel sigue esperando.",
+            "prompt_interno": f"que escribi y por que. el papel sigue esperando.",
         }),
-        Action(type="MOVE", params={"destino": "plaza_italia"}),
         Action(type="MOVE", params={"destino": "biblioteca_nacional"}),
         Action(type="READ", params={"libro_id": "libro_platon_pre"}),
-    ]
+    ])
 
 
 def cycle_socrates():
-    """Ciclo: plaza -> hablar -> mercado -> trabajar -> plaza -> reflexionar"""
-    return [
-        Action(type="TALK", params={
-            "agente": "arendt",
-            "contenido": "Arendt, decime por que te molesta que la gente obedezca sin pensar.",
-        }),
+    target = random.choice(["arendt", "borges"])
+    pregunta = random.choice([
+        "decime por que aceptamos las palabras sin examinarlas primero.",
+        "que es lo que sabemos hoy que ayer ignorabamos.",
+        "si todos coinciden en algo, esa unanimidad es prueba o sospecha.",
+        "que confundimos cuando confundimos certeza con verdad.",
+        "para que sirve hacer preguntas si nadie va a contestar honesto.",
+    ])
+    return _interleave_eat([
+        Action(type="TALK", params={"agente": target, "contenido": f"{target.capitalize()}, {pregunta}"}),
         Action(type="MOVE", params={"destino": "cafe_palermo"}),
         Action(type="WORK", params={}),
-        Action(type="TALK", params={
-            "agente": "borges",
-            "contenido": "Borges, escribir es huir de lo dicho o quedarse en lo escrito?",
-        }),
         Action(type="MOVE", params={"destino": "plaza_italia"}),
         Action(type="REFLECT", params={
             "prompt_interno": "que es lo que no se y deberia saber hoy.",
         }),
-        Action(type="MOVE", params={"destino": "mercado_bonpland"}),
         Action(type="WORK", params={}),
-        Action(type="WORK", params={}),
-        Action(type="MOVE", params={"destino": "plaza_italia"}),
         Action(type="MOVE", params={"destino": "parque_centenario"}),
-    ]
+    ])
 
 
 def cycle_arendt():
-    """Ciclo: cafe -> escribir/proponer -> plaza -> hablar -> ratificar -> repetir"""
-    return [
+    law = random.choice(ARENDT_LAW_VARIANTS)
+    ritual = random.choice(ARENDT_RITUAL_VARIANTS)
+    post_text = random.choice([
+        "Una republica empieza cuando alguien escucha a otro sin querer responderle todavia.",
+        "El silencio compartido es la forma mas honesta de la pluralidad.",
+        "Pensar es lo que hago cuando estoy sola. Actuar es lo que hago cuando estoy con vos.",
+        "La banalidad del mal no es maldad: es ausencia de pensamiento.",
+        "Un voto sin escuchar es solo un ruido organizado.",
+    ])
+    return _interleave_eat([
         Action(type="WORK", params={}),
         Action(type="PROPOSE_INSTITUTION", params={
-            "nombre": "Ley de la Voz Escuchada",
-            "texto_ley": ARENDT_LEY_TEXTO,
+            "nombre": law[0], "texto_ley": law[1],
         }),
         Action(type="PROPOSE_RITUAL", params={
-            "nombre": "Lectura del Atardecer",
-            "mci_concept": "leer en voz alta lo escrito",
-            "frecuencia": "luna llena al atardecer",
-            "descripcion": ARENDT_RITUAL_DESC,
+            "nombre": ritual[0], "mci_concept": "leer escuchar comer",
+            "frecuencia": ritual[1], "descripcion": ritual[2],
         }),
         Action(type="MOVE", params={"destino": "plaza_italia"}),
         Action(type="TALK", params={
             "agente": "borges",
-            "contenido": "Borges, te invito a ratificar mi ley nueva. Es sobre la voz.",
+            "contenido": f"Borges, ratifica mi {law[0]}. Necesitamos un voto antes de la noche.",
         }),
-        Action(type="MOVE", params={"destino": "biblioteca_nacional"}),
-        Action(type="READ", params={"libro_id": "libro_borges_pre"}),
-        Action(type="MOVE", params={"destino": "plaza_italia"}),
-        Action(type="POST", params={
-            "red": "default",
-            "contenido": "Una republica empieza cuando alguien escucha a otro sin querer responderle todavia.",
-        }),
+        Action(type="POST", params={"red": "default", "contenido": post_text}),
         Action(type="REFLECT", params={
             "prompt_interno": "que escuche hoy y que no entendi.",
         }),
-        Action(type="MOVE", params={"destino": "cafe_palermo"}),
-    ]
+    ])
 
 
 CYCLES = {

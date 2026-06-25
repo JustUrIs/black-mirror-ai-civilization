@@ -171,17 +171,25 @@ function attachListeners() {
   });
 
   // Creator spawn buttons
-  document.querySelectorAll(".obj-btn").forEach((b) => {
+  document.querySelectorAll(".obj-btn[data-type]").forEach((b) => {
     b.addEventListener("click", async () => {
       const objectType = b.dataset.type;
       const loc = els.creatorLocation.value;
       try {
         const r = await post("/admin/spawn_object", { location_id: loc, object_type: objectType });
         if (r.error) alert(r.error);
-        // close panel
         els.creatorPanel.classList.add("hidden");
       } catch (e) { alert(e); }
     });
+  });
+
+  // Revive all
+  document.getElementById("btn-revive-all").addEventListener("click", async () => {
+    try {
+      const r = await post("/admin/revive", {});
+      console.log("revived:", r.revived);
+      els.creatorPanel.classList.add("hidden");
+    } catch (e) { alert(e); }
   });
 
   // Close popovers on click outside

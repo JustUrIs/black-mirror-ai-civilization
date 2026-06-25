@@ -164,7 +164,7 @@ export function updateAgents(agents) {
 export function updateWorldObjects(objects, currentTick) {
   const byId = initMap.byId;
   const seen = new Set();
-  // group multiple objects at same location with offset
+  // group multiple objects at same location with offset (wider spacing)
   const counter = new Map();
   for (const obj of objects) {
     if (obj.state !== "active") continue;
@@ -174,15 +174,22 @@ export function updateWorldObjects(objects, currentTick) {
     const idx = counter.get(obj.location_id) || 0;
     counter.set(obj.location_id, idx + 1);
     const [cx, cy] = projection(loc.x, loc.y);
-    const offsetX = (idx % 3 - 1) * 14;
-    const offsetY = Math.floor(idx / 3) * -14 - 30;
+    // 4-column grid above location, ~22px spacing
+    const offsetX = (idx % 4 - 1.5) * 22;
+    const offsetY = Math.floor(idx / 4) * -20 - 38;
 
     let m = objectMarkers.get(obj.id);
     if (!m) {
       const group = el("g", { class: "world-object", "data-id": obj.id });
+      // Invisible hit-area circle (text doesn't catch pointer events well)
+      const hit = el("circle", {
+        cx: 0, cy: 0, r: 14,
+        fill: "rgba(0,0,0,0.001)",
+        class: "world-object-hit",
+      });
       const text = el("text", { class: "world-object-icon" });
       text.textContent = emojiForObject(obj.object_type);
-      group.append(text);
+      group.append(hit, text);
       if (currentTick - obj.created_tick <= 1) group.classList.add("world-object-new");
       makeDraggable(group, obj);
       layers.objects.append(group);

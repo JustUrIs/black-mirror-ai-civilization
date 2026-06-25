@@ -124,7 +124,15 @@ body::after {
   overflow: hidden;
 }
 
-#map { width: 100%; height: 100%; display: block; }
+#map {
+  width: 100%;
+  height: 100%;
+  display: block;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+#map text { user-select: none; -webkit-user-select: none; pointer-events: none; }
 
 .tooltip {
   position: absolute;
