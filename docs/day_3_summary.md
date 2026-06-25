@@ -1,8 +1,8 @@
 # Día 3 — Resumen
 
 **Fecha:** 2026-06-25 (continuación)
-**Tiempo real estimado:** ~5h (vs 8h presupuestadas)
-**Commits:** pending (esta entrega)
+**Tiempo real estimado:** ~6h (vs 8h presupuestadas)
+**Commits:** `a2d5259` (frontend inicial), pending (fix sim vivo + drag-drop real)
 **Repo:** https://github.com/JustUrIs/black-mirror-ai-civilization
 
 ## Objetivo del día
@@ -138,12 +138,38 @@ Endpoints API standalone también activos (Día 2 dashboard sigue en `/dashboard
 - **0 regresiones** en tests Día 1-2
 - **Tiempo real:** ~5h / **margen acumulado:** +7h (vs ~49h budget total restante)
 
+## Fix post-entrega (mismo día)
+
+Reporte del Creador: "Drag-drop no funciona. Agentes estáticos."
+
+**Diagnóstico:**
+1. `world_loop` no estaba corriendo en FastAPI (demo_seed solo seedea 13 ticks y para)
+2. Drag-drop no implementado Día 3 inicial — solo había click-to-spawn
+
+**Fixes aplicados:**
+
+| Fix | Archivo | Detalle |
+|---|---|---|
+| Background sim task | `api/main.py` lifespan | `asyncio.create_task(WorldLoop.run())` arranca al boot del server. Configurable via `LIVE_TICK_SEC` env var (default 3s). Cancelado al shutdown. |
+| Policies cíclicas famosos | `sim/famous_policies.py` (nuevo) | `CyclicPolicy` extiende ScriptedAgentPolicy con `_refill()` automático. 3 ciclos personality-aligned: Borges (biblio→escribir→café→hablar→reflexionar), Sócrates (plaza→hablar→mercado→trabajar), Arendt (café→proponer ley→hablar→ratificar). Cuando queue vacío, rellena. |
+| Drag-drop SVG | `frontend/static/js/map.js` | `makeDraggable()` con pointerdown/move/up. `svgPoint()` convierte coordenadas pantalla → SVG. `nearestLocation()` calcula closest. Highlight `drop-target` mientras drag. Drop dentro 100u → POST `/admin/move_object`. |
+| Endpoint move_object | `api/main.py` | `POST /admin/move_object {id, location_id}`. Actualiza `WorldObject.location_id` + log entry `MOVE_OBJECT` con agent_id="creator". |
+| Drop-target CSS | `style.css` | `.loc-circle.drop-target` con stroke-width 3 + drop-shadow para feedback visual |
+| `LIVE_TICK_SEC` env | `.env.example` (implícito) | Configurable. Demo usable a 2-3s/tick. Default 3s. |
+
+**Verificación end-to-end:**
+- Tick avanza 450→452 en 4s confirmado.
+- 3 agentes alternan entre acciones diversas (MOVE, WORK, WRITE_BOOK, PROPOSE_INSTITUTION, TALK, REFLECT, etc.) sin scripts terminales.
+- spawn_object endpoint OK.
+- move_object endpoint OK.
+- 6/6 tests pasan sin regresión.
+
 ## Próximo paso (Día 4)
 
 Foco original Día 4 del plan: anti-bullshit artefactos + Obra de civ + WRITE_CODE E2B integration.
-Plus pedido del Creador:
-- Drag-drop objetos en mapa
+Plus pedido del Creador (carry-over):
 - Tirar piedra → física → impacto → muerte por trauma
 - Cadáver permanece visible
 - Agente reacción a eventos (observation trigger ya está, falta wirear LLM-driven)
 - Árbol frutal que crece + agentes lo comen
+- LLM-driven decision real (reemplaza ciclo scripted)

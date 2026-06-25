@@ -1,4 +1,6 @@
 """FastAPI app entrypoint."""
+import asyncio
+import logging
 import os
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
@@ -17,6 +19,9 @@ from ..db.schema import (
 from ..sim.bootstrap import bootstrap_world
 
 
+log = logging.getLogger("api")
+
+
 load_dotenv()
 
 
@@ -24,7 +29,31 @@ load_dotenv()
 async def lifespan(app: FastAPI):
     init_db()
     bootstrap_world()
-    yield
+    # Spawn famosos si no existen
+    from ..sim.seed_famous import spawn_famous
+    spawn_famous()
+
+    # Background world loop (Día 3+: agentes vivos)
+    sim_task = None
+    if os.getenv("DISABLE_SIM", "0") != "1":
+        from ..sim.world_loop import WorldLoop
+        from ..sim.famous_policies import build_all_policies
+        tick_dur = float(os.getenv("LIVE_TICK_SEC", "3.0"))
+        policies = build_all_policies()
+        loop = WorldLoop(policies=policies, tick_duration_sec=tick_dur)
+        log.info("starting background WorldLoop, tick=%ss, agents=%s",
+                 tick_dur, list(policies.keys()))
+        sim_task = asyncio.create_task(loop.run())
+
+    try:
+        yield
+    finally:
+        if sim_task is not None:
+            sim_task.cancel()
+            try:
+                await sim_task
+            except (asyncio.CancelledError, Exception):
+                pass
 
 
 app = FastAPI(title="Eidolon backend", lifespan=lifespan)
@@ -478,6 +507,36 @@ def world_objects():
                 "metadata": w.metadata_json,
             } for w in rows
         ]
+
+
+@app.post("/admin/move_object")
+def admin_move_object(payload: dict):
+    """Creator drag-drop: move existing WorldObject to another location."""
+    obj_id = payload.get("id")
+    new_loc = payload.get("location_id")
+    if not obj_id or not new_loc:
+        return {"error": "id + location_id required"}
+    with get_session() as s:
+        wo = s.get(WorldObject, int(obj_id))
+        if wo is None:
+            return {"error": f"object {obj_id} no existe"}
+        loc = s.get(Location, new_loc)
+        if loc is None:
+            return {"error": f"location '{new_loc}' no existe"}
+        old_loc = wo.location_id
+        wo.location_id = new_loc
+        ws = s.get(WorldState, 1)
+        tick = (ws.tick_actual or 0) if ws else 0
+        s.add(ActionLog(
+            tick=tick, agent_id="creator", action_type="MOVE_OBJECT",
+            params={"id": obj_id, "from": old_loc, "to": new_loc,
+                    "object_type": wo.object_type},
+            status="accept",
+            side_effect_summary=f"creator movio '{wo.object_type}' de {old_loc} a {new_loc}",
+        ))
+        s.commit()
+        return {"id": wo.id, "location_id": wo.location_id,
+                "object_type": wo.object_type}
 
 
 @app.post("/admin/spawn_object")

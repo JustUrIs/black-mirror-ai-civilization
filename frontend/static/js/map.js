@@ -1,7 +1,9 @@
 // SVG map renderer.
 // Renders 8 locations + 11 edges. Updates agents + world_objects each tick.
+// Drag-and-drop: world objects can be dragged between locations.
 
 import { faceFor, colorFor, emojiForObject } from "./faces.js";
+import { post } from "./api.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 
@@ -9,6 +11,7 @@ let projection = null;
 let svg = null;
 let layers = {};
 let onAgentClick = null;
+let locationsCache = [];   // {id, x, y, radius}
 
 const agentMarkers = new Map();   // id -> { group, face, name, halo }
 const objectMarkers = new Map();  // id -> { group }
@@ -17,6 +20,7 @@ export function initMap(svgEl, locations, opts = {}) {
   svg = svgEl;
   onAgentClick = opts.onAgentClick || (() => {});
   const tooltip = opts.tooltip;
+  locationsCache = locations.slice();
 
   const xs = locations.map((l) => l.x);
   const ys = locations.map((l) => l.y);
@@ -175,16 +179,19 @@ export function updateWorldObjects(objects, currentTick) {
 
     let m = objectMarkers.get(obj.id);
     if (!m) {
-      const group = el("g", { class: "world-object" });
+      const group = el("g", { class: "world-object", "data-id": obj.id });
       const text = el("text", { class: "world-object-icon" });
       text.textContent = emojiForObject(obj.object_type);
       group.append(text);
       if (currentTick - obj.created_tick <= 1) group.classList.add("world-object-new");
+      makeDraggable(group, obj);
       layers.objects.append(group);
       m = { group };
       objectMarkers.set(obj.id, m);
     }
-    m.group.setAttribute("transform", `translate(${cx + offsetX}, ${cy + offsetY})`);
+    if (!m.group.classList.contains("dragging")) {
+      m.group.setAttribute("transform", `translate(${cx + offsetX}, ${cy + offsetY})`);
+    }
   }
   for (const [id, m] of objectMarkers) {
     if (seen.has(id)) continue;
@@ -228,6 +235,85 @@ function showAgentTooltip(e, a) {
 
 function hideTooltip(tooltip) {
   if (tooltip) tooltip.classList.add("hidden");
+}
+
+// === Drag-and-drop world objects between locations ===
+function svgPoint(evt) {
+  const pt = svg.createSVGPoint();
+  pt.x = evt.clientX;
+  pt.y = evt.clientY;
+  return pt.matrixTransform(svg.getScreenCTM().inverse());
+}
+
+function nearestLocation(svgX, svgY) {
+  let best = null;
+  let bestDist = Infinity;
+  for (const loc of locationsCache) {
+    const [lx, ly] = projection(loc.x, loc.y);
+    const dx = lx - svgX, dy = ly - svgY;
+    const d = Math.sqrt(dx * dx + dy * dy);
+    if (d < bestDist) { bestDist = d; best = loc; }
+  }
+  return { loc: best, dist: bestDist };
+}
+
+function makeDraggable(group, obj) {
+  let dragging = false;
+  let offsetX = 0, offsetY = 0;
+
+  group.addEventListener("pointerdown", (e) => {
+    e.stopPropagation();
+    dragging = true;
+    group.classList.add("dragging");
+    group.setPointerCapture(e.pointerId);
+    const p = svgPoint(e);
+    const cur = parseTranslate(group.getAttribute("transform"));
+    offsetX = p.x - cur.x;
+    offsetY = p.y - cur.y;
+  });
+
+  group.addEventListener("pointermove", (e) => {
+    if (!dragging) return;
+    const p = svgPoint(e);
+    const x = p.x - offsetX;
+    const y = p.y - offsetY;
+    group.setAttribute("transform", `translate(${x}, ${y})`);
+    // Highlight nearest location while hovering
+    const { loc } = nearestLocation(p.x, p.y);
+    highlightLocation(loc?.id);
+  });
+
+  group.addEventListener("pointerup", async (e) => {
+    if (!dragging) return;
+    dragging = false;
+    group.classList.remove("dragging");
+    group.releasePointerCapture(e.pointerId);
+    highlightLocation(null);
+    const p = svgPoint(e);
+    const { loc, dist } = nearestLocation(p.x, p.y);
+    // Only drop if reasonably close
+    if (loc && dist < 100) {
+      try {
+        await post("/admin/move_object", { id: obj.id, location_id: loc.id });
+        // Object will reposition on next /world_objects poll
+      } catch (err) {
+        console.error("move failed", err);
+      }
+    }
+  });
+}
+
+function parseTranslate(s) {
+  if (!s) return { x: 0, y: 0 };
+  const m = s.match(/translate\(([-\d.]+)[, ]+([-\d.]+)\)/);
+  return m ? { x: parseFloat(m[1]), y: parseFloat(m[2]) } : { x: 0, y: 0 };
+}
+
+function highlightLocation(locId) {
+  for (const c of svg.querySelectorAll(".loc-circle")) {
+    if (c.dataset.loc === locId) c.classList.add("drop-target");
+    else c.classList.remove("drop-target");
+  }
 }
 
 // SVG element helper

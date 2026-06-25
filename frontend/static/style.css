@@ -155,13 +155,22 @@ body::after {
 .transit-line { stroke-dasharray: 4 4; opacity: 0.5; animation: transitDash 800ms linear infinite; }
 @keyframes transitDash { to { stroke-dashoffset: -8; } }
 
-.world-object { cursor: pointer; }
-.world-object-icon { font-size: 14px; text-anchor: middle; dominant-baseline: central; }
+.world-object { cursor: grab; touch-action: none; }
+.world-object.dragging { cursor: grabbing; }
+.world-object.dragging .world-object-icon { filter: drop-shadow(0 0 12px #ffba6c); }
+.world-object-icon { font-size: 14px; text-anchor: middle; dominant-baseline: central; pointer-events: none; }
 .world-object-new { animation: objectGlow 1200ms ease-out forwards; }
 @keyframes objectGlow {
   0% { filter: drop-shadow(0 0 12px #ffba6c); opacity: 0.4; }
   60% { filter: drop-shadow(0 0 6px #ffba6c); opacity: 1; }
   100% { filter: none; opacity: 1; }
+}
+
+.loc-circle.drop-target {
+  stroke-width: 3 !important;
+  stroke-opacity: 1 !important;
+  fill-opacity: 0.30 !important;
+  filter: drop-shadow(0 0 8px currentColor);
 }
 
 /* ========== Side pane ========== */
