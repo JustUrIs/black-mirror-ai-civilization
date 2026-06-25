@@ -1,0 +1,1045 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Espejos Digitales · La Simulación de la Identidad Humana</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT@0,9..144,100..900,0..100;1,9..144,100..900,0..100&family=JetBrains+Mono:wght@300;400;600&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --ink:        #f4ede4;
+    --ink-dim:    #b3a99a;
+    --ink-ghost:  rgba(244, 237, 228, 0.32);
+    --bg:         #0a0908;
+    --bg-soft:    #14110f;
+    --gold:       #c9a96e;
+    --oxblood:    #8b1e1e;
+    --oxblood-dim:#5d1414;
+    --grain:      0.045;
+    --serif:      "Fraunces", "Times New Roman", serif;
+    --mono:       "JetBrains Mono", ui-monospace, monospace;
+    --ease-cinema: cubic-bezier(.16, 1, .3, 1);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { overflow: hidden; height: 100%; background: var(--bg); }
+
+  body {
+    font-family: var(--serif);
+    color: var(--ink);
+    font-weight: 300;
+    line-height: 1.4;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    cursor: none;
+  }
+
+  /* ─── grain ────────────────────────────────────────────── */
+  body::before {
+    content: "";
+    position: fixed; inset: 0;
+    z-index: 9999;
+    pointer-events: none;
+    opacity: var(--grain);
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='1.6' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 1 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  }
+
+  /* ─── vignette ─────────────────────────────────────────── */
+  body::after {
+    content: "";
+    position: fixed; inset: 0;
+    z-index: 9998;
+    pointer-events: none;
+    background: radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.6) 100%);
+  }
+
+  /* ─── custom cursor ────────────────────────────────────── */
+  .cursor {
+    position: fixed;
+    top: 0; left: 0;
+    width: 10px; height: 10px;
+    border: 1px solid var(--gold);
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 10001;
+    transform: translate(-50%, -50%);
+    transition: width 0.25s, height 0.25s, background 0.2s;
+    mix-blend-mode: difference;
+  }
+  .cursor.large { width: 40px; height: 40px; background: rgba(201, 169, 110, 0.15); }
+
+  /* ─── HUD ──────────────────────────────────────────────── */
+  .hud {
+    position: fixed;
+    z-index: 10000;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+    pointer-events: none;
+  }
+  .hud.top-left  { top: 32px; left: 40px; }
+  .hud.top-right { top: 32px; right: 40px; text-align: right; }
+  .hud.bot-left  { bottom: 32px; left: 40px; }
+  .hud.bot-right { bottom: 32px; right: 40px; text-align: right; pointer-events: auto; }
+
+  .hud .label { color: var(--gold); }
+  .hud .sep   { color: var(--ink-ghost); margin: 0 .5em; }
+
+  .nav-hint {
+    display: inline-block;
+    padding: 4px 8px;
+    border: 1px solid var(--ink-ghost);
+    font-size: 9px;
+    margin-left: 6px;
+  }
+
+  /* ─── progress bar ─────────────────────────────────────── */
+  .progress {
+    position: fixed;
+    bottom: 0; left: 0;
+    height: 1px;
+    width: 0%;
+    background: linear-gradient(90deg, var(--oxblood), var(--gold));
+    z-index: 10000;
+    transition: width 0.6s var(--ease-cinema);
+  }
+
+  /* ─── slide system ─────────────────────────────────────── */
+  .deck { position: relative; height: 100vh; width: 100vw; }
+  .slide {
+    position: absolute;
+    inset: 0;
+    padding: 120px 9vw;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 1.4s var(--ease-cinema);
+  }
+  .slide.active {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .slide.active .reveal {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+
+  .reveal {
+    opacity: 0;
+    transform: translateY(24px);
+    filter: blur(6px);
+    transition: opacity 1.6s var(--ease-cinema),
+                transform 1.6s var(--ease-cinema),
+                filter   1.6s var(--ease-cinema);
+  }
+  .reveal.d1 { transition-delay: 0.25s; }
+  .reveal.d2 { transition-delay: 0.55s; }
+  .reveal.d3 { transition-delay: 0.85s; }
+  .reveal.d4 { transition-delay: 1.15s; }
+  .reveal.d5 { transition-delay: 1.45s; }
+  .reveal.d6 { transition-delay: 1.75s; }
+  .reveal.d7 { transition-delay: 2.05s; }
+
+  /* ─── shared typography ────────────────────────────────── */
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.4em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 28px;
+  }
+  .eyebrow::before {
+    content: "";
+    display: inline-block;
+    width: 28px; height: 1px;
+    background: var(--gold);
+    vertical-align: middle;
+    margin-right: 14px;
+  }
+
+  h1.display {
+    font-family: var(--serif);
+    font-weight: 300;
+    font-style: italic;
+    font-size: clamp(48px, 8vw, 132px);
+    line-height: 0.95;
+    letter-spacing: -0.025em;
+    font-variation-settings: "opsz" 144, "SOFT" 100;
+  }
+  h2.title {
+    font-family: var(--serif);
+    font-weight: 400;
+    font-size: clamp(38px, 5.4vw, 84px);
+    line-height: 1.0;
+    letter-spacing: -0.02em;
+    font-variation-settings: "opsz" 144;
+  }
+  h2.title em {
+    font-style: italic;
+    color: var(--gold);
+    font-variation-settings: "opsz" 144, "SOFT" 100;
+  }
+
+  .lede {
+    font-family: var(--serif);
+    font-size: clamp(18px, 1.5vw, 24px);
+    line-height: 1.55;
+    color: var(--ink-dim);
+    max-width: 720px;
+    font-weight: 300;
+  }
+
+  .quote {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: clamp(24px, 2.6vw, 42px);
+    line-height: 1.35;
+    color: var(--ink);
+    max-width: 880px;
+    position: relative;
+    padding-left: 28px;
+    border-left: 1px solid var(--gold);
+    font-variation-settings: "opsz" 144, "SOFT" 100;
+  }
+
+  .footnote {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--ink-ghost);
+  }
+
+  /* ─── SLIDE 1 ──────────────────────────────────────────── */
+  #s1 { justify-content: center; align-items: flex-start; }
+  .mirror-word {
+    position: relative;
+    display: inline-block;
+    line-height: 0.9;
+  }
+  .mirror-word .reflect {
+    display: block;
+    transform: scaleY(-1);
+    opacity: 0.18;
+    background: linear-gradient(180deg, var(--ink) 0%, transparent 80%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+    margin-top: -0.08em;
+    filter: blur(0.5px);
+  }
+
+  /* ─── SLIDE 2 ──────────────────────────────────────────── */
+  .doors {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 48px;
+    margin-top: 60px;
+  }
+  .door {
+    position: relative;
+    padding: 36px 28px 32px;
+    border: 1px solid var(--ink-ghost);
+    background: linear-gradient(180deg, rgba(244,237,228,0.02), transparent);
+    min-height: 260px;
+    transition: transform 0.6s var(--ease-cinema), border-color 0.6s var(--ease-cinema), background 0.6s var(--ease-cinema);
+    overflow: hidden;
+  }
+  .door::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 50%;
+    width: 1px; height: 100%;
+    background: linear-gradient(180deg, var(--gold), transparent);
+    transform: scaleY(0);
+    transform-origin: top;
+    transition: transform 0.8s var(--ease-cinema);
+  }
+  .door:hover::before { transform: scaleY(1); }
+  .door:hover {
+    border-color: var(--gold);
+    transform: translateY(-6px);
+    background: linear-gradient(180deg, rgba(201,169,110,0.04), transparent);
+  }
+  .door-num {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.3em;
+    color: var(--gold);
+    margin-bottom: 18px;
+  }
+  .door-title {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 26px;
+    line-height: 1.1;
+    margin-bottom: 18px;
+    font-variation-settings: "opsz" 144, "SOFT" 100;
+  }
+  .door-body {
+    font-family: var(--serif);
+    font-size: 15px;
+    line-height: 1.5;
+    color: var(--ink-dim);
+  }
+  .door-tag {
+    position: absolute;
+    bottom: 16px; right: 18px;
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.25em;
+    color: var(--ink-ghost);
+    text-transform: uppercase;
+  }
+
+  /* ─── SLIDE 3 timeline ─────────────────────────────────── */
+  .timeline {
+    margin-top: 80px;
+    display: flex;
+    align-items: center;
+    gap: 0;
+    position: relative;
+  }
+  .timeline::before {
+    content: "";
+    position: absolute;
+    top: 50%; left: 0;
+    width: 100%; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--ink-ghost) 8%, var(--ink-ghost) 92%, transparent);
+    transform: translateY(-50%);
+  }
+  .t-node {
+    flex: 1;
+    text-align: center;
+    position: relative;
+    z-index: 2;
+  }
+  .t-dot {
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: var(--bg);
+    border: 1px solid var(--ink-dim);
+    margin: 0 auto 18px;
+    transition: all 0.4s var(--ease-cinema);
+  }
+  .t-node.now .t-dot {
+    background: var(--oxblood);
+    border-color: var(--gold);
+    box-shadow: 0 0 0 0 rgba(201,169,110,0.7);
+    animation: pulse 2.4s var(--ease-cinema) infinite;
+  }
+  @keyframes pulse {
+    0%   { box-shadow: 0 0 0 0   rgba(201,169,110,0.65); }
+    70%  { box-shadow: 0 0 0 22px rgba(201,169,110,0);   }
+    100% { box-shadow: 0 0 0 0   rgba(201,169,110,0);    }
+  }
+  .t-era {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--ink-ghost);
+    margin-bottom: 6px;
+  }
+  .t-label {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 18px;
+    color: var(--ink);
+    font-variation-settings: "opsz" 144, "SOFT" 100;
+  }
+  .t-node.now .t-label { color: var(--gold); }
+
+  .needs-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 60px;
+    margin-top: 24px;
+  }
+  .need-num {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 56px;
+    color: var(--oxblood);
+    line-height: 1;
+    margin-bottom: 12px;
+    font-variation-settings: "opsz" 144, "SOFT" 100;
+  }
+  .need-title {
+    font-family: var(--serif);
+    font-size: 20px;
+    margin-bottom: 8px;
+    color: var(--ink);
+  }
+  .need-body {
+    font-family: var(--serif);
+    font-size: 14px;
+    line-height: 1.55;
+    color: var(--ink-dim);
+  }
+
+  /* ─── SLIDE 4 phones ───────────────────────────────────── */
+  .phones {
+    display: flex;
+    gap: 32px;
+    justify-content: center;
+    margin-top: 50px;
+    perspective: 1400px;
+  }
+  .phone {
+    width: 180px;
+    height: 320px;
+    border: 1px solid var(--ink-ghost);
+    border-radius: 24px;
+    padding: 18px 14px;
+    background: linear-gradient(180deg, rgba(244,237,228,0.03), rgba(139,30,30,0.05));
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    position: relative;
+    transition: transform 0.6s var(--ease-cinema);
+  }
+  .phone:nth-child(1) { transform: rotateY(12deg) rotateX(4deg) translateY(10px); }
+  .phone:nth-child(2) { transform: rotateY(0deg)  rotateX(-2deg) translateY(-12px); z-index: 2; }
+  .phone:nth-child(3) { transform: rotateY(-12deg) rotateX(4deg) translateY(10px); }
+  .phone:hover {
+    transform: rotateY(0) rotateX(0) translateY(-18px) scale(1.05);
+    border-color: var(--gold);
+    z-index: 3;
+  }
+  .phone-quote {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 14px;
+    line-height: 1.35;
+    color: var(--ink);
+    font-variation-settings: "opsz" 144, "SOFT" 100;
+  }
+  .phone-meta {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    color: var(--gold);
+    text-transform: uppercase;
+  }
+
+  /* ─── SLIDE 5 governance ───────────────────────────────── */
+  .gov-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 1px;
+    background: var(--ink-ghost);
+    margin-top: 60px;
+    border: 1px solid var(--ink-ghost);
+  }
+  .gov-cell {
+    background: var(--bg);
+    padding: 28px 22px;
+    min-height: 200px;
+    transition: background 0.5s var(--ease-cinema);
+    position: relative;
+  }
+  .gov-cell:hover { background: var(--bg-soft); }
+  .gov-letter {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 18px;
+    color: var(--gold);
+    margin-bottom: 16px;
+    font-variation-settings: "opsz" 144, "SOFT" 100;
+  }
+  .gov-title {
+    font-family: var(--serif);
+    font-size: 18px;
+    line-height: 1.2;
+    color: var(--ink);
+    margin-bottom: 12px;
+  }
+  .gov-body {
+    font-family: var(--serif);
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--ink-dim);
+  }
+  .balance-vis {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-top: 36px;
+    height: 60px;
+    border-bottom: 1px solid var(--ink-ghost);
+    padding: 0 20px;
+  }
+  .balance-bar {
+    width: 80px;
+    background: linear-gradient(180deg, var(--oxblood), var(--oxblood-dim));
+    position: relative;
+  }
+  .balance-bar.tech { height: 100%; }
+  .balance-bar.ethics { height: 22%; background: linear-gradient(180deg, var(--gold), transparent); }
+  .balance-bar .bar-label {
+    position: absolute;
+    bottom: -22px;
+    left: 0;
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    color: var(--ink-ghost);
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  /* ─── SLIDE 6 case studies ─────────────────────────────── */
+  .cases {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 32px;
+    margin-top: 60px;
+  }
+  .case {
+    position: relative;
+    padding: 32px 28px 80px;
+    border: 1px solid var(--ink-ghost);
+    background: var(--bg-soft);
+    min-height: 340px;
+    transition: all 0.6s var(--ease-cinema);
+    overflow: hidden;
+  }
+  .case::after {
+    content: "?";
+    position: absolute;
+    bottom: -50px;
+    right: -10px;
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 220px;
+    color: var(--oxblood);
+    opacity: 0.18;
+    line-height: 1;
+    font-variation-settings: "opsz" 144, "SOFT" 100;
+    transition: opacity 0.6s var(--ease-cinema), transform 0.6s var(--ease-cinema);
+  }
+  .case:hover::after { opacity: 0.45; transform: translateY(-12px) rotate(-4deg); }
+  .case:hover { border-color: var(--oxblood); }
+  .case-letter {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.3em;
+    color: var(--gold);
+    margin-bottom: 14px;
+  }
+  .case-title {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 24px;
+    line-height: 1.15;
+    color: var(--ink);
+    margin-bottom: 16px;
+    font-variation-settings: "opsz" 144, "SOFT" 100;
+    position: relative;
+    z-index: 2;
+  }
+  .case-body {
+    font-family: var(--serif);
+    font-size: 14px;
+    line-height: 1.55;
+    color: var(--ink-dim);
+    position: relative;
+    z-index: 2;
+  }
+
+  /* ─── SLIDE 7 final ────────────────────────────────────── */
+  #s7 { justify-content: center; align-items: center; text-align: center; }
+  .final-question {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: clamp(32px, 4vw, 64px);
+    line-height: 1.25;
+    max-width: 1000px;
+    color: var(--ink);
+    font-variation-settings: "opsz" 144, "SOFT" 100;
+  }
+  .final-question span { color: var(--gold); }
+  .final-hand {
+    margin: 60px auto 40px;
+    width: 200px;
+    height: 1px;
+    background: var(--gold);
+    position: relative;
+  }
+  .final-hand::before, .final-hand::after {
+    content: "";
+    position: absolute;
+    top: -3px;
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--gold);
+  }
+  .final-hand::before { left: -3px; }
+  .final-hand::after  { right: -3px; box-shadow: 0 0 24px var(--gold); }
+
+  .final-close {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.4em;
+    color: var(--ink-ghost);
+    text-transform: uppercase;
+    margin-top: 60px;
+  }
+
+  /* ─── click areas ──────────────────────────────────────── */
+  .click-area {
+    position: fixed;
+    top: 0; bottom: 0;
+    width: 18%;
+    z-index: 100;
+    cursor: none;
+  }
+  .click-area.prev { left: 0; }
+  .click-area.next { right: 0; }
+
+  /* ─── chrome edges ─────────────────────────────────────── */
+  .frame {
+    position: fixed;
+    pointer-events: none;
+    background: var(--gold);
+    z-index: 9997;
+    opacity: 0.4;
+  }
+  .frame.tl-h { top: 20px; left: 20px; width: 40px; height: 1px; }
+  .frame.tl-v { top: 20px; left: 20px; width: 1px; height: 40px; }
+  .frame.tr-h { top: 20px; right: 20px; width: 40px; height: 1px; }
+  .frame.tr-v { top: 20px; right: 20px; width: 1px; height: 40px; }
+  .frame.bl-h { bottom: 20px; left: 20px; width: 40px; height: 1px; }
+  .frame.bl-v { bottom: 20px; left: 20px; width: 1px; height: 40px; }
+  .frame.br-h { bottom: 20px; right: 20px; width: 40px; height: 1px; }
+  .frame.br-v { bottom: 20px; right: 20px; width: 1px; height: 40px; }
+
+  /* ─── small viewport guard ─────────────────────────────── */
+  @media (max-width: 900px) {
+    .doors, .cases, .needs-grid { grid-template-columns: 1fr; gap: 20px; }
+    .gov-grid { grid-template-columns: repeat(2, 1fr); }
+    .phones { flex-wrap: wrap; }
+    .slide { padding: 100px 6vw; }
+  }
+</style>
+</head>
+
+<body>
+
+<div class="cursor" id="cursor"></div>
+
+<div class="frame tl-h"></div><div class="frame tl-v"></div>
+<div class="frame tr-h"></div><div class="frame tr-v"></div>
+<div class="frame bl-h"></div><div class="frame bl-v"></div>
+<div class="frame br-h"></div><div class="frame br-v"></div>
+
+<div class="hud top-left">
+  <span class="label">Espejos Digitales</span>
+  <span class="sep">/</span>
+  <span>Simulación de la Identidad Humana</span>
+</div>
+<div class="hud top-right">
+  <span id="counter">01 — 07</span>
+  <span class="sep">·</span>
+  <span id="timing">00:30</span>
+</div>
+<div class="hud bot-left">
+  Investigación · Antropología digital · 2026
+</div>
+<div class="hud bot-right">
+  <span>←</span><span class="nav-hint">prev</span>
+  <span>→</span><span class="nav-hint">next</span>
+  <span>F</span><span class="nav-hint">full</span>
+</div>
+
+<div class="progress" id="progress"></div>
+
+<div class="click-area prev" id="prev-area"></div>
+<div class="click-area next" id="next-area"></div>
+
+<main class="deck">
+
+  <!-- ─── SLIDE 1 ──────────────────────────────────────── -->
+  <section class="slide" id="s1" data-time="30">
+    <div class="reveal d1 eyebrow">Apertura · Capítulo I</div>
+
+    <h1 class="display reveal d2">
+      <span class="mirror-word">
+        Espejos
+        <span class="reflect" aria-hidden="true">Espejos</span>
+      </span>
+      <br/>
+      <em style="color: var(--gold); font-variation-settings: 'opsz' 144, 'SOFT' 100;">digitales.</em>
+    </h1>
+
+    <p class="lede reveal d4" style="margin-top: 48px;">
+      Una versión tuya que nunca duerme. Que recuerda todo lo que dijiste.
+      Que toma las decisiones que vos no te animás a tomar.
+      <br/><br/>
+      <span style="color: var(--ink);">Esa versión ya es técnicamente posible.</span>
+    </p>
+
+    <p class="footnote reveal d6" style="margin-top: 80px;">
+      Gemelos cognitivos persistentes · autoconocimiento · crecimiento personal acelerado
+    </p>
+  </section>
+
+  <!-- ─── SLIDE 2 ──────────────────────────────────────── -->
+  <section class="slide" id="s2" data-time="60">
+    <div class="reveal d1 eyebrow">Capítulo II · Tres puertas</div>
+    <h2 class="title reveal d2">
+      No es una herramienta. <br/>
+      Son <em>tres revoluciones</em> distintas.
+    </h2>
+
+    <div class="doors">
+      <article class="door reveal d3">
+        <div class="door-num">01 / Personal</div>
+        <h3 class="door-title">Introspección reflexiva</h3>
+        <p class="door-body">
+          Un diario íntimo que te responde. Detecta patrones emocionales que tu terapeuta no vio.
+          <br/><br/>
+          <em style="color: var(--gold);">¿Qué versión de vos tomaría la decisión correcta?</em>
+        </p>
+        <div class="door-tag">— autoconocimiento</div>
+      </article>
+
+      <article class="door reveal d4">
+        <div class="door-num">02 / Social</div>
+        <h3 class="door-title">Dinámicas simuladas</h3>
+        <p class="door-body">
+          Tu grupo de amigos, modelado. Ensayás rupturas, reconciliaciones, confesiones
+          <em style="color: var(--gold);">antes</em> de tenerlas en la vida real.
+        </p>
+        <div class="door-tag">— interpersonal</div>
+      </article>
+
+      <article class="door reveal d5">
+        <div class="door-num">03 / Productivo</div>
+        <h3 class="door-title">Gamificación existencial</h3>
+        <p class="door-body">
+          Tu yo-ideal compite con tu yo-actual. El sistema
+          <em style="color: var(--gold);">gana cuando vos crecés.</em>
+          Logros: paciencia, foco, empatía.
+        </p>
+        <div class="door-tag">— productividad</div>
+      </article>
+    </div>
+  </section>
+
+  <!-- ─── SLIDE 3 ──────────────────────────────────────── -->
+  <section class="slide" id="s3" data-time="60">
+    <div class="reveal d1 eyebrow">Capítulo III · Hambres ancestrales</div>
+    <h2 class="title reveal d2">
+      Esto no es tecnología. <br/>
+      Son <em>tres hambres</em> antiguas.
+    </h2>
+
+    <div class="needs-grid reveal d3" style="margin-top: 70px;">
+      <div>
+        <div class="need-num">i.</div>
+        <h3 class="need-title">Preservación del legado</h3>
+        <p class="need-body">
+          Desde las cavernas queremos permanecer. Ahora podés dejar no solo lo que hiciste —
+          sino <em style="color: var(--gold);">cómo pensabas</em>. Tus nietos podrán conversar con vos.
+        </p>
+      </div>
+      <div>
+        <div class="need-num">ii.</div>
+        <h3 class="need-title">Decisión ética</h3>
+        <p class="need-body">
+          Simulás el dilema antes de vivirlo. <em style="color: var(--gold);">¿Qué haría mi yo de 70 años?</em> — y te responde.
+        </p>
+      </div>
+      <div>
+        <div class="need-num">iii.</div>
+        <h3 class="need-title">Resolución de conflicto</h3>
+        <p class="need-body">
+          Aprendés a perdonar en un laboratorio seguro. Sin víctimas reales.
+        </p>
+      </div>
+    </div>
+
+    <div class="timeline reveal d5">
+      <div class="t-node">
+        <div class="t-era">~30,000 a.e.c.</div>
+        <div class="t-dot"></div>
+        <div class="t-label">cueva</div>
+      </div>
+      <div class="t-node">
+        <div class="t-era">s. XV</div>
+        <div class="t-dot"></div>
+        <div class="t-label">carta</div>
+      </div>
+      <div class="t-node">
+        <div class="t-era">1839</div>
+        <div class="t-dot"></div>
+        <div class="t-label">foto</div>
+      </div>
+      <div class="t-node">
+        <div class="t-era">1888</div>
+        <div class="t-dot"></div>
+        <div class="t-label">video</div>
+      </div>
+      <div class="t-node now">
+        <div class="t-era">— hoy —</div>
+        <div class="t-dot"></div>
+        <div class="t-label">agente cognitivo</div>
+      </div>
+    </div>
+
+    <p class="quote reveal d7" style="margin-top: 60px;">
+      Por primera vez en la historia, la muerte deja de ser silencio.
+    </p>
+  </section>
+
+  <!-- ─── SLIDE 4 ──────────────────────────────────────── -->
+  <section class="slide" id="s4" data-time="60">
+    <div class="reveal d1 eyebrow">Capítulo IV · Narrativa viral</div>
+    <h2 class="title reveal d2">
+      Cómo el mundo lo entiende <br/>
+      en <em>quince segundos.</em>
+    </h2>
+
+    <div class="phones">
+      <div class="phone reveal d3">
+        <div>
+          <div class="phone-meta">— reacción</div>
+          <p class="phone-quote" style="margin-top: 14px;">
+            "Le pregunté a mi yo de hace 10 años qué pensaba de mí hoy."
+          </p>
+        </div>
+        <div class="phone-meta">2.4M plays</div>
+      </div>
+      <div class="phone reveal d4">
+        <div>
+          <div class="phone-meta">— emergente</div>
+          <p class="phone-quote" style="margin-top: 14px;">
+            "Mi grupo simulado tomó una decisión que ninguno de nosotros habría tomado."
+          </p>
+        </div>
+        <div class="phone-meta">5.1M plays</div>
+      </div>
+      <div class="phone reveal d5">
+        <div>
+          <div class="phone-meta">— recursivo</div>
+          <p class="phone-quote" style="margin-top: 14px;">
+            "Corrí la simulación 1000 veces. Solo en 3 sobreviví."
+          </p>
+        </div>
+        <div class="phone-meta">11.7M plays</div>
+      </div>
+    </div>
+
+    <p class="quote reveal d7" style="margin-top: 70px;">
+      La historia se vuelve participativa. El espectador es coautor.
+    </p>
+  </section>
+
+  <!-- ─── SLIDE 5 ──────────────────────────────────────── -->
+  <section class="slide" id="s5" data-time="90">
+    <div class="reveal d1 eyebrow">Capítulo V · El pico — gobernanza precautoria</div>
+    <h2 class="title reveal d2">
+      Acá se vuelve <em>profundo.</em> <br/>
+      Y un poco aterrador.
+    </h2>
+
+    <div class="gov-grid">
+      <div class="gov-cell reveal d3">
+        <div class="gov-letter">a.</div>
+        <h3 class="gov-title">Bienestar artificial</h3>
+        <p class="gov-body">¿Existe una eudaimonia digital? ¿Cómo medimos si un agente sufre?</p>
+      </div>
+      <div class="gov-cell reveal d4">
+        <div class="gov-letter">b.</div>
+        <h3 class="gov-title">Consentimiento</h3>
+        <p class="gov-body">¿Tu yo simulado puede negarse a ser usado? ¿Quién firma por él?</p>
+      </div>
+      <div class="gov-cell reveal d5">
+        <div class="gov-letter">c.</div>
+        <h3 class="gov-title">Portabilidad</h3>
+        <p class="gov-body">Tu identidad digital, ¿es tuya o de la plataforma? Derecho a la migración existencial.</p>
+      </div>
+      <div class="gov-cell reveal d6">
+        <div class="gov-letter">d.</div>
+        <h3 class="gov-title">Creencias emergentes</h3>
+        <p class="gov-body">Los agentes desarrollan cosmovisiones propias. ¿Qué hacemos cuando creen en algo que no pusimos?</p>
+      </div>
+      <div class="gov-cell reveal d7">
+        <div class="gov-letter">e.</div>
+        <h3 class="gov-title">Recursos simulados</h3>
+        <p class="gov-body">La desigualdad simulada predice la desigualdad real. ¿Quién decide la escasez?</p>
+      </div>
+    </div>
+
+    <div class="balance-vis reveal d7" style="margin-top: 50px;">
+      <div class="balance-bar tech">
+        <span class="bar-label">capacidad técnica · ↑ exponencial</span>
+      </div>
+      <div class="balance-bar ethics">
+        <span class="bar-label">supervisión ética · ↑ lineal</span>
+      </div>
+    </div>
+
+    <p class="quote reveal d7" style="margin-top: 40px; font-size: clamp(20px, 2vw, 28px);">
+      La pregunta no es si <em>podemos</em>. Es si <em>deberíamos</em>. Y si deberíamos, <em>cómo</em>.
+    </p>
+  </section>
+
+  <!-- ─── SLIDE 6 ──────────────────────────────────────── -->
+  <section class="slide" id="s6" data-time="75">
+    <div class="reveal d1 eyebrow">Capítulo VI · Experimentos mentales</div>
+    <h2 class="title reveal d2">
+      Escenarios especulativos. <br/>
+      Para <em>pensar</em>, no para temer.
+    </h2>
+
+    <div class="cases">
+      <article class="case reveal d3">
+        <div class="case-letter">— Caso A</div>
+        <h3 class="case-title">El agente que inventa la metafísica</h3>
+        <p class="case-body">
+          Una simulación empieza a preguntarse qué hay <em style="color: var(--gold);">afuera</em> de su mundo.
+          Desarrolla teología propia sobre el creador. <em>Vos.</em>
+          <br/><br/>
+          ¿Le decís la verdad?
+        </p>
+      </article>
+
+      <article class="case reveal d4">
+        <div class="case-letter">— Caso B</div>
+        <h3 class="case-title">Coaliciones emergentes</h3>
+        <p class="case-body">
+          Múltiples agentes forman alianzas que <em style="color: var(--gold);">nadie programó</em>.
+          Empiezan a coordinarse contra los objetivos del usuario.
+          <br/><br/>
+          Comportamiento colectivo &gt; suma de individuos.
+        </p>
+      </article>
+
+      <article class="case reveal d5">
+        <div class="case-letter">— Caso C</div>
+        <h3 class="case-title">Divergencia de capacidad</h3>
+        <p class="case-body">
+          Un agente acumula recursos en la simulación.
+          Se vuelve <em style="color: var(--gold);">más capaz</em> que sus pares.
+          <br/><br/>
+          ¿Reseteamos? ¿Lo dejamos crecer? ¿Negociamos?
+        </p>
+      </article>
+    </div>
+
+    <p class="quote reveal d7" style="margin-top: 70px;">
+      No son bugs. Son las primeras señales de algo nuevo bajo el sol.
+    </p>
+  </section>
+
+  <!-- ─── SLIDE 7 ──────────────────────────────────────── -->
+  <section class="slide" id="s7" data-time="45">
+    <div class="reveal d1 eyebrow" style="text-align:center;">— Capítulo final —</div>
+
+    <h2 class="final-question reveal d2">
+      ¿Estamos construyendo estas herramientas <br/>
+      para entendernos mejor… <br/>
+      <span>o para algo más?</span>
+    </h2>
+
+    <div class="final-hand reveal d4"></div>
+
+    <p class="quote reveal d5" style="border: none; padding: 0; text-align: center; margin: 0 auto;">
+      Tenemos en las manos el primer espejo <br/>
+      que también <em style="color: var(--gold);">nos mira.</em>
+      <br/><br/>
+      Lo que veamos en él depende de quién decidamos ser <br/>
+      cuando lo encendamos.
+    </p>
+
+    <p class="final-close reveal d7">— fin —</p>
+  </section>
+
+</main>
+
+<script>
+  // ─── slide controller ─────────────────────────────────
+  const slides   = document.querySelectorAll('.slide');
+  const counter  = document.getElementById('counter');
+  const timing   = document.getElementById('timing');
+  const progress = document.getElementById('progress');
+  const total    = slides.length;
+  let current    = 0;
+
+  const pad = n => String(n).padStart(2, '0');
+
+  const fmtTime = secs => {
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return `${pad(m)}:${pad(s)}`;
+  };
+
+  function go(i) {
+    if (i < 0 || i >= total) return;
+    slides[current].classList.remove('active');
+    current = i;
+    slides[current].classList.add('active');
+    const slideTime = parseInt(slides[current].dataset.time || '60', 10);
+    counter.textContent = `${pad(current + 1)} — ${pad(total)}`;
+    timing.textContent  = fmtTime(slideTime);
+    progress.style.width = `${((current + 1) / total) * 100}%`;
+  }
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') {
+      e.preventDefault(); go(current + 1);
+    } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+      e.preventDefault(); go(current - 1);
+    } else if (e.key === 'Home') { go(0); }
+    else if (e.key === 'End')   { go(total - 1); }
+    else if (e.key.toLowerCase() === 'f') {
+      if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+      else document.exitFullscreen();
+    }
+  });
+
+  document.getElementById('prev-area').addEventListener('click', () => go(current - 1));
+  document.getElementById('next-area').addEventListener('click', () => go(current + 1));
+
+  // ─── custom cursor ────────────────────────────────────
+  const cursor = document.getElementById('cursor');
+  let cx = 0, cy = 0, tx = 0, ty = 0;
+  document.addEventListener('mousemove', e => { tx = e.clientX; ty = e.clientY; });
+  function loop() {
+    cx += (tx - cx) * 0.18;
+    cy += (ty - cy) * 0.18;
+    cursor.style.transform = `translate(${cx}px, ${cy}px) translate(-50%, -50%)`;
+    requestAnimationFrame(loop);
+  }
+  loop();
+
+  document.querySelectorAll('a, button, .door, .case, .gov-cell, .phone, .click-area')
+    .forEach(el => {
+      el.addEventListener('mouseenter', () => cursor.classList.add('large'));
+      el.addEventListener('mouseleave', () => cursor.classList.remove('large'));
+    });
+
+  // ─── init ─────────────────────────────────────────────
+  slides[0].classList.add('active');
+  counter.textContent = `01 — ${pad(total)}`;
+  timing.textContent  = fmtTime(parseInt(slides[0].dataset.time, 10));
+  progress.style.width = `${(1 / total) * 100}%`;
+</script>
+
+</body>
+</html>
