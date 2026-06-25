@@ -1,4 +1,4 @@
-"""Day 3 scripted policies for famous agents — personality-aligned cycles
+"""Day 3+ scripted policies for famous agents — personality-aligned cycles
 with food/water survival behavior + content variation.
 
 Each famoso cycles through realistic routines:
@@ -9,9 +9,12 @@ Each famoso cycles through realistic routines:
 Survival: cada ciclo intercala GATHER (food/water del location actual o
 mercado) + EAT/DRINK. Esto evita que mueran de hambre tras ~95 ticks.
 
-Day 5+ LLM-driven reemplaza estos ciclos.
+DAY 4: cuando ANTHROPIC_API_KEY presente, build_all_policies retorna
+LLMDrivenPolicy en vez de CyclicPolicy. Las decisiones vienen de Claude
+Sonnet 4.6 leyendo personalidad + estado + ontology.
 """
 import logging
+import os
 import random
 from .world_loop import ScriptedAgentPolicy
 from ..gm.actions import Action
@@ -87,6 +90,22 @@ def _interleave_eat(actions, every=4):
     return out
 
 
+BORGES_HTML_DEMO = """<!doctype html>
+<html><head><meta charset="utf-8"><title>Tema y variacion</title></head>
+<body style="font-family:Georgia,serif;background:#0a0a0e;color:#d6d6dc;
+            padding:18px;margin:0;line-height:1.5">
+<h2 style="color:#6cc4ff;margin:0 0 8px">Tema y variacion</h2>
+<p style="color:#8d8d97;font-size:11px;margin:0 0 10px">por borges, en eidolon</p>
+<p>Cada lector lee un libro distinto. El primero busca la trama.</p>
+<p>El segundo busca al autor.</p>
+<p>El tercero, ya cansado, busca solo el silencio entre los parrafos.</p>
+<p>Ninguno encuentra lo que busca; los tres encuentran otra cosa.</p>
+<hr style="border-color:#2a2a35;margin:14px 0">
+<p style="font-size:11px;color:#8d8d97;font-style:italic">
+una sola pagina genera tres libros distintos. la biblioteca consiste en eso.</p>
+</body></html>"""
+
+
 def cycle_borges():
     variant = random.choice(BORGES_BOOK_VARIANTS)
     return _interleave_eat([
@@ -99,10 +118,16 @@ def cycle_borges():
             "contenido": f"Socrates, escribi sobre {variant[0].lower()}. Te lo presto si queres.",
         }),
         Action(type="MOVE", params={"destino": "cafe_palermo"}),
-        Action(type="WORK", params={}),
-        Action(type="REFLECT", params={
-            "prompt_interno": f"que escribi y por que. el papel sigue esperando.",
+        Action(type="MOVE", params={"destino": "depto_almagro_1"}),
+        Action(type="WRITE_CODE", params={
+            "spec": "una pagina sobre lectura multiple, html simple, palabra clave: variacion sobre tema",
+            "lenguaje": "html",
+            "codigo_full": BORGES_HTML_DEMO,
         }),
+        Action(type="REFLECT", params={
+            "prompt_interno": "que escribi y por que. el papel sigue esperando.",
+        }),
+        Action(type="MOVE", params={"destino": "cafe_palermo"}),
         Action(type="MOVE", params={"destino": "biblioteca_nacional"}),
         Action(type="READ", params={"libro_id": "libro_platon_pre"}),
     ])
@@ -188,4 +213,26 @@ class CyclicPolicy(ScriptedAgentPolicy):
 
 
 def build_all_policies() -> dict:
+    """Build policies for famous agents.
+
+    - Si ANTHROPIC_API_KEY presente y USE_LLM_POLICY!=0 → LLMDrivenPolicy
+      (decisiones reales de Claude Sonnet).
+    - Sino → CyclicPolicy (scripted, survival-safe).
+
+    Variable USE_LLM_POLICY=0 fuerza scripted incluso con key (debug/cost).
+    """
+    use_llm = (
+        os.getenv("ANTHROPIC_API_KEY")
+        and os.getenv("USE_LLM_POLICY", "1") != "0"
+    )
+    if use_llm:
+        from ..mind.llm import LLMGateway
+        from .llm_policy import LLMDrivenPolicy
+        gateway = LLMGateway(stub_mode=False)
+        log.info("LLM-driven policy ACTIVE for famosos (USE_LLM_POLICY=1)")
+        return {
+            aid: LLMDrivenPolicy(agent_id=aid, gateway=gateway)
+            for aid in CYCLES.keys()
+        }
+    log.info("Scripted CyclicPolicy ACTIVE (no ANTHROPIC_API_KEY or USE_LLM_POLICY=0)")
     return {aid: CyclicPolicy(aid) for aid in CYCLES.keys()}

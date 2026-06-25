@@ -13,6 +13,8 @@ from ..db.schema import Agent, WorldState
 from ..gm.actions import Action
 from ..gm.validator import GameMaster
 from .triggers import classify_trigger, Trigger
+from .emotions import update_agent_emotions
+from .world_dynamics import grow_fruit_trees
 
 
 log = logging.getLogger("world_loop")
@@ -116,6 +118,9 @@ class WorldLoop:
             tick = ws.tick_actual
             s.add(ws)
 
+            # Mundo no-cognitivo: arboles dan fruta, etc.
+            grow_fruit_trees(s, tick)
+
             agents = s.query(Agent).filter(Agent.alive == True).all()  # noqa: E712
 
             ctx = self.gm.build_context(s, tick=tick)
@@ -141,6 +146,14 @@ class WorldLoop:
                 if policy is None:
                     continue
                 trigger = classify_trigger(agent, s, tick)
+                # Apply emotional updates based on observations (heuristica determinista)
+                observations = (
+                    trigger.context_extra.get("events", [])
+                    if trigger.kind == "observation" else []
+                )
+                update_agent_emotions(agent, observations, tick)
+                s.add(agent)
+
                 if (not getattr(policy, "ignore_triggers", False)) and trigger.kind == "skip":
                     log.debug("tick=%d agent=%s SKIP (%s)", tick, agent.id, trigger.reason)
                     continue

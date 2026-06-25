@@ -31,6 +31,7 @@ export function emojiForObject(t) {
   return ({
     piedra: "🪨",
     arbol_frutal: "🌳",
+    fruta: "🍎",
     pan: "🥖",
     agua_extra: "💧",
     libro_extraño: "📕",

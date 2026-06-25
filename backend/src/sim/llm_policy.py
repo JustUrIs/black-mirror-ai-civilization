@@ -195,20 +195,58 @@ class LLMDrivenPolicy:
     def next_action(self, trigger: Trigger | None = None) -> Action | None:
         if trigger is None or trigger.kind == "skip":
             return None
-        if trigger.kind == "observation":
-            # Micro call (we still cache; useful for narration). No action.
-            return None
         if self._ctx_ref is None:
             log.warning("policy missing ctx_ref; cannot build prompt")
             return None
-        # Find agent in ctx
         agent = self._ctx_ref.agents_by_id.get(self.agent_id)
         if agent is None:
             return None
-        prompt = render_prompt(agent, trigger, self._ctx_ref)
-        result = self.gateway.call(prompt, tier="leader")
+
+        # Observation: micro LLM call (1 line). Inject into agent's memoria_recent
+        # so the next decision tick has fresh context. No action returned.
+        if trigger.kind == "observation":
+            try:
+                prompt = self._render_observation_prompt(agent, trigger)
+                result = self.gateway.call(prompt, tier="micro", max_tokens=200)
+                self._inject_memory(agent, result.text.strip()[:280])
+            except Exception as e:
+                log.warning("observation micro-call failed for %s: %s", self.agent_id, e)
+            return None
+
+        # Decision (crit_need / crit_event / normal): full prompt, leader tier.
+        try:
+            prompt = render_prompt(agent, trigger, self._ctx_ref)
+            result = self.gateway.call(prompt, tier="leader", max_tokens=1200)
+        except Exception as e:
+            log.warning("LLM decision call failed for %s: %s", self.agent_id, e)
+            return None
         action = parse_action_response(result.text)
         if action is None:
-            log.warning("LLM returned unparseable JSON for %s: %s", self.agent_id, result.text[:120])
+            log.warning("LLM returned unparseable JSON for %s: %s",
+                        self.agent_id, result.text[:160])
             return None
         return action
+
+    def _render_observation_prompt(self, agent, trigger) -> str:
+        events = trigger.context_extra.get("events", [])
+        evt_str = ", ".join(
+            f"{e.get('actor')}={e.get('type')}" for e in events
+        )
+        return (
+            f"Sos {agent.nombre}. Estas en {agent.ubicacion}. "
+            f"Acabas de observar: {evt_str}. "
+            "Escribi UNA oracion (en castellano rioplatense, primera persona) "
+            "describiendo que pensaste o sentiste en este instante. "
+            "Maximo 200 chars. No declares ninguna accion. Solo el pensamiento."
+        )
+
+    def _inject_memory(self, agent, snippet: str):
+        from ..config import MEMORIA_RECENT_CAP
+        mem = list(agent.memoria_recent or [])
+        mem.append({
+            "tick": self._ctx_ref.tick,
+            "type": "observation",
+            "snippet": snippet,
+        })
+        agent.memoria_recent = mem[-MEMORIA_RECENT_CAP:]
+        self._ctx_ref.session.add(agent)

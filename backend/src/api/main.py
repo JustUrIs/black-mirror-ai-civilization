@@ -314,9 +314,25 @@ def code_artifacts():
             {
                 "id": r.id, "autor_id": r.autor_id, "lenguaje": r.lenguaje,
                 "spec": r.spec, "codigo": r.codigo, "stdout": r.stdout,
-                "html_render": r.html_render, "tick": r.tick,
+                "has_html_render": bool(r.html_render),
+                "tick": r.tick,
             } for r in rows
         ]
+
+
+@app.get("/code/{code_id}/render", response_class=HTMLResponse)
+def code_render(code_id: int):
+    """Serve HTML artifact as iframe-able page. ONLY html lenguaje."""
+    with get_session() as s:
+        a = s.get(CodeArtifact, code_id)
+        if a is None:
+            return HTMLResponse("<p>not found</p>", status_code=404)
+        if a.lenguaje != "html" or not a.html_render:
+            return HTMLResponse(
+                f"<p style='font-family:monospace;color:#888'>"
+                f"code #{code_id} ({a.lenguaje}) — sin HTML render</p>"
+            )
+        return HTMLResponse(a.html_render)
 
 
 @app.get("/institutions")
@@ -548,6 +564,57 @@ def admin_revive(payload: dict):
             revived.append(a.id)
         s.commit()
     return {"revived": revived}
+
+
+@app.post("/admin/throw_object")
+def admin_throw_object(payload: dict):
+    """Creator launches object at target agent. Damage by object_type."""
+    obj_id = payload.get("id")
+    target_id = payload.get("agent_id")
+    if not obj_id or not target_id:
+        return {"error": "id + agent_id required"}
+    with get_session() as s:
+        wo = s.get(WorldObject, int(obj_id))
+        if wo is None:
+            return {"error": f"object {obj_id} no existe"}
+        target = s.get(Agent, target_id)
+        if target is None or not target.alive:
+            return {"error": f"target '{target_id}' invalido o muerto"}
+        from ..gm.handlers import THROW_DAMAGE_BY_TYPE
+        damage = THROW_DAMAGE_BY_TYPE.get(wo.object_type, 10.0)
+        ws = s.get(WorldState, 1)
+        tick = (ws.tick_actual or 0) if ws else 0
+        target.salud = max(0.0, target.salud - damage)
+        died = False
+        if target.salud <= 0:
+            target.alive = False
+            died = True
+        wo.state = "thrown"
+        wo.location_id = target.ubicacion  # objeto cae en location del target
+        wo.metadata_json = dict(wo.metadata_json or {})
+        wo.metadata_json.update({
+            "thrown_by": "creator",
+            "thrown_at_tick": tick,
+            "target": target.id,
+        })
+        s.add(target)
+        s.add(wo)
+        s.add(ActionLog(
+            tick=tick, agent_id="creator", action_type="THROW",
+            params={"objeto_id": obj_id, "agente": target_id,
+                    "object_type": wo.object_type},
+            status="accept",
+            side_effect_summary=(
+                f"creator lanzo '{wo.object_type}' contra {target_id} "
+                f"(-{damage} salud{', MURIO' if died else ''})"
+            ),
+        ))
+        s.commit()
+        return {
+            "object_id": obj_id, "target": target_id,
+            "damage": damage, "salud_restante": target.salud,
+            "died": died,
+        }
 
 
 @app.post("/admin/move_object")

@@ -105,25 +105,68 @@ def _check_crit_event(agent: Agent, session, tick: int) -> Trigger | None:
     return None
 
 
+OBSERVABLE_AGENT_ACTIONS = {
+    "WRITE_BOOK", "WRITE_CODE", "PROPOSE_INSTITUTION", "PROPOSE_RITUAL",
+    "ATTACK", "THROW",
+}
+
+CREATOR_OBSERVABLE_ACTIONS = {
+    "SPAWN_OBJECT", "MOVE_OBJECT", "REVIVE",
+}
+
+
 def _check_observation(agent: Agent, session, tick: int) -> Trigger | None:
-    """Recent notable events at agent.ubicacion or involving agent's relations."""
-    # Recent artefacts produced THIS tick at same location
-    notable = session.query(ActionLog).filter(
-        ActionLog.tick == tick,
+    """Recent notable events at agent.ubicacion (last 2 ticks)."""
+    recent = session.query(ActionLog).filter(
+        ActionLog.tick >= tick - 1,
+        ActionLog.tick <= tick,
         ActionLog.status == "accept",
-        ActionLog.action_type.in_([
-            "WRITE_BOOK", "WRITE_CODE", "PROPOSE_INSTITUTION", "PROPOSE_RITUAL"
-        ]),
-        ActionLog.agent_id != agent.id,
     ).all()
-    if notable:
+
+    events = []
+    for l in recent:
+        if l.agent_id == agent.id:
+            continue
+        # Agent-produced notable artefacts at same location
+        if l.action_type in OBSERVABLE_AGENT_ACTIONS:
+            actor_loc = _action_location(l, session)
+            if actor_loc == agent.ubicacion:
+                events.append({
+                    "actor": l.agent_id, "type": l.action_type,
+                    "summary": (l.side_effect_summary or "")[:120],
+                    "tick": l.tick,
+                    "from_creator": False,
+                })
+        # Creator interventions at same location
+        if l.action_type in CREATOR_OBSERVABLE_ACTIONS:
+            target_loc = (l.params or {}).get("location_id") or (l.params or {}).get("to")
+            if target_loc == agent.ubicacion:
+                events.append({
+                    "actor": "creator", "type": l.action_type,
+                    "summary": (l.side_effect_summary or "")[:120],
+                    "tick": l.tick,
+                    "from_creator": True,
+                })
+
+    if events:
         return Trigger(
             kind="observation",
-            forced_subset=[],  # no forced action; just micro LLM
-            context_extra={"events": [{"actor": l.agent_id, "type": l.action_type} for l in notable]},
-            reason=f"{len(notable)} eventos notables observados",
+            forced_subset=[],
+            context_extra={"events": events},
+            reason=f"{len(events)} eventos observados",
         )
     return None
+
+
+def _action_location(log_entry, session) -> str | None:
+    """Best-effort: location del actor cuando hizo la action."""
+    params = log_entry.params or {}
+    if "location_id" in params:
+        return params["location_id"]
+    # fallback: actor's current ubicacion (may be stale but ok for observation)
+    from ..db.schema import Agent as A
+    a = session.get(A, log_entry.agent_id)
+    return a.ubicacion if a else None
 
 
 def classify_trigger(agent: Agent, session, tick: int) -> Trigger:

@@ -264,6 +264,19 @@ function nearestLocation(svgX, svgY) {
   return { loc: best, dist: bestDist };
 }
 
+function nearestAgent(svgX, svgY) {
+  let best = null;
+  let bestDist = Infinity;
+  for (const [id, m] of agentMarkers) {
+    const t = m.group.getAttribute("transform");
+    const pos = parseTranslate(t);
+    const dx = pos.x - svgX, dy = pos.y - svgY;
+    const d = Math.sqrt(dx * dx + dy * dy);
+    if (d < bestDist) { bestDist = d; best = id; }
+  }
+  return { agent: best, dist: bestDist };
+}
+
 function makeDraggable(group, obj) {
   let dragging = false;
   let offsetX = 0, offsetY = 0;
@@ -297,12 +310,24 @@ function makeDraggable(group, obj) {
     group.releasePointerCapture(e.pointerId);
     highlightLocation(null);
     const p = svgPoint(e);
+
+    // Priority 1: drop near agent (within 30u) → THROW
+    const { agent, dist: aDist } = nearestAgent(p.x, p.y);
+    if (agent && aDist < 30) {
+      try {
+        const r = await post("/admin/throw_object", { id: obj.id, agent_id: agent });
+        if (r.died) console.warn(`💀 ${agent} murió por impacto`);
+      } catch (err) {
+        console.error("throw failed", err);
+      }
+      return;
+    }
+
+    // Priority 2: drop near location → MOVE
     const { loc, dist } = nearestLocation(p.x, p.y);
-    // Only drop if reasonably close
     if (loc && dist < 100) {
       try {
         await post("/admin/move_object", { id: obj.id, location_id: loc.id });
-        // Object will reposition on next /world_objects poll
       } catch (err) {
         console.error("move failed", err);
       }

@@ -106,15 +106,16 @@ function startPolling() {
   // Obra
   const refreshObra = async () => {
     try {
-      const [books, institutions, posts, pendingRituals, ratifiedRituals] = await Promise.all([
+      const [books, institutions, posts, pendingRituals, ratifiedRituals, code] = await Promise.all([
         get("/books"),
         get("/institutions"),
         get("/posts"),
         get("/rituals/pending"),
         get("/rituals"),
+        get("/code"),
       ]);
       const rituals = [...(pendingRituals || []), ...((ratifiedRituals || []).map((r) => ({ ...r, status: "ratified", ratify_count: 3 })))];
-      renderObra(els.obraBody, { books, institutions, posts, rituals });
+      renderObra(els.obraBody, { books, institutions, posts, rituals, code });
     } catch (e) { console.warn("obra refresh", e); }
   };
   refreshObra();
@@ -144,14 +145,13 @@ function attachListeners() {
       document.querySelectorAll(".tab").forEach((x) => x.classList.remove("active"));
       t.classList.add("active");
       setObraTab(t.dataset.tab);
-      // force refresh
       try {
-        const [books, institutions, posts, pendingRituals, ratifiedRituals] = await Promise.all([
+        const [books, institutions, posts, pendingRituals, ratifiedRituals, code] = await Promise.all([
           get("/books"), get("/institutions"), get("/posts"),
-          get("/rituals/pending"), get("/rituals"),
+          get("/rituals/pending"), get("/rituals"), get("/code"),
         ]);
         const rituals = [...(pendingRituals || []), ...((ratifiedRituals || []).map((r) => ({ ...r, status: "ratified", ratify_count: 3 })))];
-        renderObra(els.obraBody, { books, institutions, posts, rituals });
+        renderObra(els.obraBody, { books, institutions, posts, rituals, code });
       } catch (e) { console.warn(e); }
     });
   });

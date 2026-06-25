@@ -358,13 +358,27 @@ PRELOADED_BOOK_CONTENT = {
 
 
 class GatherHandler:
-    """GATHER(objeto) takes a consumable item from a location object."""
+    """GATHER takes consumable from location.objetos OR active WorldObject in location.
+
+    Params options:
+      {"objeto": <id_in_location.objetos>}              # static map object
+      {"world_object_id": <int>}                        # dynamic WorldObject (fruta, etc.)
+    """
     def check_prereqs(self, agent, params, ctx):
         ok, err = _reject_if_in_transit(agent)
         if not ok: return ok, err
+        wo_id = params.get("world_object_id")
         objeto_id = params.get("objeto")
+        if wo_id is not None:
+            from ..db.schema import WorldObject
+            wo = ctx.session.get(WorldObject, int(wo_id))
+            if wo is None or wo.state != "active":
+                return False, f"world_object {wo_id} no existe o inactivo."
+            if wo.location_id != agent.ubicacion:
+                return False, f"world_object {wo_id} esta en {wo.location_id}, no aca."
+            return True, ""
         if not objeto_id:
-            return False, "GATHER requiere 'objeto'."
+            return False, "GATHER requiere 'objeto' o 'world_object_id'."
         loc = ctx.locations_by_id.get(agent.ubicacion)
         if loc is None:
             return False, f"location '{agent.ubicacion}' invalida."
@@ -376,6 +390,27 @@ class GatherHandler:
         return True, ""
 
     def apply(self, agent, params, ctx):
+        wo_id = params.get("world_object_id")
+        if wo_id is not None:
+            from ..db.schema import WorldObject
+            wo = ctx.session.get(WorldObject, int(wo_id))
+            meta = wo.metadata_json or {}
+            new_item = {
+                "id": f"{wo.object_type}_{wo.id}",
+                "fuente": f"world_object:{wo.id}",
+                "object_type": wo.object_type,
+            }
+            if meta.get("es_comestible"):
+                new_item["es_comestible"] = True
+                new_item["calorias"] = meta.get("calorias", 25)
+            wo.state = "consumed"
+            ctx.session.add(wo)
+            inv = list(agent.inventario or [])
+            inv.append(new_item)
+            agent.inventario = inv
+            ctx.session.add(agent)
+            return f"recogio {wo.object_type} (world_object {wo.id})"
+
         objeto_id = params["objeto"]
         loc = ctx.locations_by_id[agent.ubicacion]
         objeto = next(o for o in loc.objetos if o.get("id") == objeto_id)
@@ -658,17 +693,47 @@ class WriteCodeHandler:
 
     def apply(self, agent, params, ctx):
         from ..db.schema import CodeArtifact
+        lenguaje = params.get("lenguaje", "python")
+        codigo_full = (params.get("codigo_full") or "").strip()
+        if not codigo_full:
+            # Sin codigo concreto: stub minimo coherente.
+            if lenguaje == "html":
+                codigo_full = (
+                    f"<!doctype html><html><body style='font-family:monospace;"
+                    f"background:#0a0a0e;color:#d6d6dc;padding:18px'>"
+                    f"<h2 style='color:#6cc4ff'>borrador de {agent.id}</h2>"
+                    f"<p>spec: {params['spec'][:200]}</p>"
+                    f"<p style='color:#8d8d97;font-size:11px'>"
+                    f"(stub — sin LLM driver, no se genero codigo real)</p>"
+                    f"</body></html>"
+                )
+            else:
+                codigo_full = (
+                    f"# {agent.id} en tick {ctx.tick}\n"
+                    f"# spec: {params['spec'][:200]}\n"
+                    f"# (stub — sin LLM driver)\n"
+                    f"print('hola desde la simulacion')\n"
+                )
+
+        html_render = ""
+        stdout_text = ""
+        if lenguaje == "html":
+            html_render = codigo_full   # iframe sirve esto directo
+
         artifact = CodeArtifact(
             autor_id=agent.id,
             spec=params["spec"],
-            lenguaje=params.get("lenguaje", "python"),
-            codigo="# [stub Día 2 — pending E2B integration Día 4]",
-            stdout="",
-            html_render="",
+            lenguaje=lenguaje,
+            codigo=codigo_full,
+            stdout=stdout_text,
+            html_render=html_render,
             tick=ctx.tick,
         )
         ctx.session.add(artifact)
-        return f"escribio codigo {artifact.lenguaje} (spec {len(params['spec'])} chars) [stub Dia 2]"
+        return (
+            f"escribio codigo {lenguaje} "
+            f"(spec {len(params['spec'])} chars, codigo {len(codigo_full)} chars)"
+        )
 
 
 class ReadHandler:
@@ -892,6 +957,83 @@ class RatifyHandler:
         return f"ratifico {tipo}:{pid} ({p.ratify_count}/{self.REQUIRED_VOTES}){promoted}"
 
 
+THROW_DAMAGE_BY_TYPE = {
+    "piedra": 40.0,
+    "pan": 0.0,
+    "agua_extra": 0.0,
+    "arbol_frutal": 0.0,
+    "fruta": 0.0,
+    "libro_extraño": 5.0,
+    "libro_extrano": 5.0,
+}
+
+
+class ThrowHandler:
+    """THROW(objeto_id, target_agent): physical impact damage.
+
+    Anti-bullshit:
+    - objeto_id debe ser WorldObject 'active' en MISMA location del thrower
+    - target debe estar misma location, alive, distinto del thrower
+    Side-effects:
+    - Object marca state='thrown'; queda en location del target.
+    - Target.salud -= damage. Si <=0 → alive=False.
+    - Relacion thrower→target = -1.0
+    """
+    def check_prereqs(self, agent, params, ctx):
+        ok, err = _reject_if_in_transit(agent)
+        if not ok: return ok, err
+        obj_id = params.get("objeto_id")
+        target_id = params.get("agente")
+        if not obj_id or not target_id:
+            return False, "THROW requiere 'objeto_id' y 'agente'."
+        target = ctx.agents_by_id.get(target_id)
+        if target is None or target.id == agent.id:
+            return False, "target invalido."
+        if not target.alive:
+            return False, f"'{target_id}' ya esta muerto, no podes atacarlo."
+        if target.ubicacion != agent.ubicacion or target.in_transit:
+            return False, f"'{target_id}' no accesible (loc={target.ubicacion}, vos={agent.ubicacion})."
+        from ..db.schema import WorldObject
+        wo = ctx.session.get(WorldObject, int(obj_id))
+        if wo is None or wo.state != "active":
+            return False, f"objeto {obj_id} no existe o no esta activo."
+        if wo.location_id != agent.ubicacion:
+            return False, f"objeto {obj_id} no esta en tu location."
+        return True, ""
+
+    def apply(self, agent, params, ctx):
+        from ..db.schema import WorldObject
+        target = ctx.agents_by_id[params["agente"]]
+        obj_id = int(params["objeto_id"])
+        wo = ctx.session.get(WorldObject, obj_id)
+        damage = THROW_DAMAGE_BY_TYPE.get(wo.object_type, 10.0)
+        target.salud = max(0.0, target.salud - damage)
+        died = False
+        if target.salud <= 0:
+            target.alive = False
+            died = True
+        # Relacion
+        rel = dict(target.relaciones or {})
+        rel[agent.id] = -1.0
+        target.relaciones = rel
+        rel_self = dict(agent.relaciones or {})
+        rel_self[target.id] = -1.0
+        agent.relaciones = rel_self
+        # Object marcado como thrown
+        wo.state = "thrown"
+        wo.metadata_json = dict(wo.metadata_json or {})
+        wo.metadata_json["thrown_by"] = agent.id
+        wo.metadata_json["thrown_at_tick"] = ctx.tick
+        wo.metadata_json["target"] = target.id
+        ctx.session.add(agent)
+        ctx.session.add(target)
+        ctx.session.add(wo)
+        return (
+            f"tiro '{wo.object_type}' a {target.id} (-{damage} salud)"
+            + (f", MURIO" if died else f", salud={target.salud:.0f}")
+        )
+
+
 class PostHandler:
     MIN_CONTENT_CHARS = 10
 
@@ -936,4 +1078,5 @@ def default_handlers() -> dict:
         "PROPOSE_RITUAL": ProposeRitualHandler(),
         "RATIFY": RatifyHandler(),
         "POST": PostHandler(),
+        "THROW": ThrowHandler(),
     }

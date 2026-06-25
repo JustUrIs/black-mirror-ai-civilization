@@ -27,8 +27,11 @@ from .base import AuditCheck
 
 
 # Allowed non-agent action_log entries (system-originated, audited)
-ALLOWED_SYSTEM_AGENTS = {"system", "creator", "bootstrap"}
-ALLOWED_SYSTEM_ACTIONS = {"AUTO_PROMOTE", "TICK_DECAY", "SINK_TAX", "BOOTSTRAP"}
+ALLOWED_SYSTEM_AGENTS = {"system", "creator", "bootstrap", "nature"}
+ALLOWED_SYSTEM_ACTIONS = {
+    "AUTO_PROMOTE", "TICK_DECAY", "SINK_TAX", "BOOTSTRAP",
+    "GROW_FRUIT", "SPAWN_OBJECT", "MOVE_OBJECT", "REVIVE", "THROW",
+}
 
 
 def check_action_log_origins(session: Session) -> AuditCheck:

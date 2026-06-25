@@ -91,6 +91,17 @@ export function renderObra(container, data) {
         <div class="obra-card-progress">ratificacion: ${r.ratify_count}/3 (${(r.ratifiers || []).join(", ") || "ninguno"})</div>
       </article>
     `).join("");
+  } else if (obraTab === "code") {
+    const code = data.code || [];
+    if (!code.length) html = empty("(sin codigo)");
+    else html = code.slice().reverse().map((c) => `
+      <article class="obra-card">
+        <div class="obra-card-title">${escapeHTML(c.lenguaje)} por ${escapeHTML(c.autor_id)}</div>
+        <div class="obra-card-meta">t${c.tick} · ${c.codigo?.length || 0} chars</div>
+        <div class="obra-card-body notitalic" style="white-space:pre-wrap;max-height:140px;overflow:auto;font-size:10px">${escapeHTML((c.codigo || "").slice(0, 600))}</div>
+        ${c.has_html_render ? `<iframe src="/code/${c.id}/render" style="width:100%;height:160px;border:1px solid var(--bg-border);margin-top:6px;background:white;border-radius:3px"></iframe>` : ""}
+      </article>
+    `).join("");
   }
   container.innerHTML = html;
 }
