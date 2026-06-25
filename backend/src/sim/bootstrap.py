@@ -48,6 +48,19 @@ def bootstrap_world(map_id: str | None = None) -> None:
                     objetos=loc.get("objetos", []),
                     asiento_publico=loc.get("asiento_publico", False),
                     transitions=loc.get("transitions", []),
+                    x=float(loc.get("x", 0.0)),
+                    y=float(loc.get("y", 0.0)),
+                    radius=float(loc.get("radius", 5.0)),
+                    permite_trabajo=bool(loc.get("permite_trabajo", False)),
                 ))
 
         s.commit()
+
+
+def get_map_walk_speed(map_id: str | None = None) -> float:
+    map_id = map_id or os.getenv("MAP_ID", "moderno")
+    map_path = MAPS_DIR / f"{map_id}.json"
+    if not map_path.exists():
+        return 5.0
+    data = json.loads(map_path.read_text(encoding="utf-8"))
+    return float(data.get("walk_speed_per_tick", 5.0))

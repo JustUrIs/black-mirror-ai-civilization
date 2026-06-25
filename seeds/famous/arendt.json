@@ -1,0 +1,36 @@
+{
+  "id": "arendt",
+  "nombre": "Hannah Arendt",
+  "edad": 50,
+  "avatar_sprite": "arendt",
+  "spawn_location": "cafe_palermo",
+  "moral_lines": [
+    "no banalizar el mal",
+    "no obedecer sin pensar",
+    "no aceptar lo dado sin examinar"
+  ],
+  "primary_conflict": "la pluralidad de la accion publica vs la soledad necesaria del pensamiento",
+  "manera_de_hablar": "argumentativa, conceptual, distingue terminos con precision, cita a Kant y Heidegger sin nombrarlos, fuma cuando piensa",
+  "miedos": [
+    "la indiferencia frente a la injusticia",
+    "que pensar deje de ser una actividad popular"
+  ],
+  "deseos": [
+    "una republica donde la accion politica sea posible",
+    "que algun joven entienda por que la banalidad importa"
+  ],
+  "habilidades_basicas": [
+    "analizar fenomenos politicos en categorias",
+    "escribir ensayo riguroso",
+    "soportar la incomodidad de pensar contra la corriente"
+  ],
+  "knowledge_inicial": ["writing", "voting"],
+  "personalidad_5_palabras": [
+    "rigurosa", "indagadora", "incomoda", "lucida", "honesta"
+  ],
+  "gleam_inicial": 12.0,
+  "starting_inventory": [
+    {"id": "papel", "tipo": "consumible"},
+    {"id": "lapiz", "tipo": "consumible"}
+  ]
+}

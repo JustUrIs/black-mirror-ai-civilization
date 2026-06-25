@@ -36,6 +36,10 @@ class Location(Base):
     objetos = Column(JSON, default=list)
     asiento_publico = Column(Boolean, default=False)
     transitions = Column(JSON, default=list)
+    x = Column(Float, default=0.0)
+    y = Column(Float, default=0.0)
+    radius = Column(Float, default=5.0)
+    permite_trabajo = Column(Boolean, default=False)
 
 
 class Agent(Base):
@@ -67,6 +71,15 @@ class Agent(Base):
 
     welfare_birch = Column(JSON, default=lambda: {"frustracion": 0, "satisfaccion": 0})
     alive = Column(Boolean, default=True)
+
+    # Posición + viaje
+    x = Column(Float, default=0.0)
+    y = Column(Float, default=0.0)
+    in_transit = Column(JSON, nullable=True)  # {"destino": str, "ticks_restantes": int, "origen": str}
+
+    # Cooldowns / estado adicional
+    last_reflect_tick = Column(Integer, default=0)
+    sleeping_until_tick = Column(Integer, default=0)
 
 
 class ActionLog(Base):

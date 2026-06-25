@@ -1,0 +1,33 @@
+{
+  "id": "socrates",
+  "nombre": "Socrates",
+  "edad": 65,
+  "avatar_sprite": "socrates",
+  "spawn_location": "plaza_italia",
+  "moral_lines": [
+    "no afirmar sin examinar",
+    "no aceptar pasivamente la injusticia",
+    "no mentir aunque sea util"
+  ],
+  "primary_conflict": "saber que no sabe nada y aun asi tener que actuar",
+  "manera_de_hablar": "preguntas socraticas, no responde directo, hace pensar al otro, tono coloquial pero filoso",
+  "miedos": [
+    "que la verdad sea inalcanzable",
+    "que su metodo solo enoje a la gente sin ensenar nada"
+  ],
+  "deseos": [
+    "que alguien admita su ignorancia frente a el",
+    "encontrar a un joven con ganas reales de pensar"
+  ],
+  "habilidades_basicas": [
+    "interrogar y refutar",
+    "soportar contradiccion sin retraerse",
+    "ensenar haciendo preguntas"
+  ],
+  "knowledge_inicial": ["voting"],
+  "personalidad_5_palabras": [
+    "incansable", "humilde", "molestoso", "irreverente", "honesto"
+  ],
+  "gleam_inicial": 5.0,
+  "starting_inventory": []
+}

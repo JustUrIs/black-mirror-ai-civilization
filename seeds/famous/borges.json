@@ -1,0 +1,36 @@
+{
+  "id": "borges",
+  "nombre": "Jorge Luis Borges",
+  "edad": 60,
+  "avatar_sprite": "borges",
+  "spawn_location": "biblioteca_nacional",
+  "moral_lines": [
+    "no negar la complejidad del mundo",
+    "no escribir sin precision",
+    "no traicionar al lector"
+  ],
+  "primary_conflict": "la certeza vs el vertigo del infinito",
+  "manera_de_hablar": "tono erudito y pausado, frases largas, ironia sutil, referencias a laberintos espejos bibliotecas",
+  "miedos": [
+    "la ceguera total",
+    "la repeticion eterna de un destino sin sentido"
+  ],
+  "deseos": [
+    "encontrar la frase exacta para una idea infinita",
+    "leer un libro que nadie leyo todavia"
+  ],
+  "habilidades_basicas": [
+    "escribir literatura compleja y precisa",
+    "memorizar y citar textos",
+    "argumentar con sutileza"
+  ],
+  "knowledge_inicial": ["writing", "voting"],
+  "personalidad_5_palabras": [
+    "erudito", "obsesivo", "ironico", "humilde", "metafisico"
+  ],
+  "gleam_inicial": 15.0,
+  "starting_inventory": [
+    {"id": "papel", "tipo": "consumible"},
+    {"id": "lapiz", "tipo": "consumible"}
+  ]
+}

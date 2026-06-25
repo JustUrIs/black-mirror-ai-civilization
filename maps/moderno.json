@@ -4,12 +4,16 @@
   "tech_level": "modern",
   "biomas": ["urbano"],
   "spawn_default": "plaza_italia",
+  "walk_speed_per_tick": 5.0,
+  "_coords_note": "Coordenadas aproximadas (no a escala real). Unidades arbitrarias. Manhattan distance / walk_speed_per_tick = ticks de viaje.",
   "locations": [
     {
       "id": "plaza_italia",
       "nombre_display": "Plaza Italia",
       "tipo": "publico",
       "asiento_publico": true,
+      "permite_trabajo": false,
+      "x": 50.0, "y": 50.0, "radius": 6.0,
       "objetos": [
         {"id": "banco_plaza", "verbos": ["SIT", "TALK"]},
         {"id": "fuente", "verbos": ["DRINK"], "tiene_agua": true}
@@ -21,9 +25,11 @@
       "nombre_display": "Café de Palermo",
       "tipo": "publico",
       "asiento_publico": true,
+      "permite_trabajo": true,
+      "x": 55.0, "y": 48.0, "radius": 4.0,
       "objetos": [
         {"id": "mesa_cafe", "verbos": ["SIT", "TALK", "WRITE_BOOK", "WRITE_LETTER"]},
-        {"id": "cafe_taza", "verbos": ["DRINK"], "es_comestible": false, "es_bebible": true, "calorias": 5},
+        {"id": "cafe_taza", "verbos": ["DRINK"], "es_bebible": true, "calorias": 5},
         {"id": "papel", "verbos": ["TAKE"], "tipo": "consumible"},
         {"id": "lapiz", "verbos": ["TAKE"], "tipo": "consumible"},
         {"id": "medialuna", "verbos": ["EAT"], "es_comestible": true, "calorias": 30}
@@ -35,6 +41,8 @@
       "nombre_display": "Biblioteca Nacional",
       "tipo": "publico",
       "asiento_publico": true,
+      "permite_trabajo": false,
+      "x": 70.0, "y": 40.0, "radius": 6.0,
       "objetos": [
         {"id": "libro_borges_pre", "verbos": ["READ"], "contenido_ref": "preloaded_borges_short"},
         {"id": "libro_platon_pre", "verbos": ["READ"], "contenido_ref": "preloaded_platon_apologia_fragment"},
@@ -50,6 +58,8 @@
       "nombre_display": "Departamento Almagro 1",
       "tipo": "privado",
       "asiento_publico": false,
+      "permite_trabajo": false,
+      "x": 40.0, "y": 70.0, "radius": 3.0,
       "objetos": [
         {"id": "cama_1", "verbos": ["SLEEP"]},
         {"id": "cocina_1", "verbos": ["EAT", "GATHER"]},
@@ -63,6 +73,8 @@
       "nombre_display": "Departamento Almagro 2",
       "tipo": "privado",
       "asiento_publico": false,
+      "permite_trabajo": false,
+      "x": 38.0, "y": 75.0, "radius": 3.0,
       "objetos": [
         {"id": "cama_2", "verbos": ["SLEEP"]},
         {"id": "cocina_2", "verbos": ["EAT", "GATHER"]},
@@ -75,6 +87,8 @@
       "nombre_display": "Departamento Almagro 3",
       "tipo": "privado",
       "asiento_publico": false,
+      "permite_trabajo": false,
+      "x": 35.0, "y": 80.0, "radius": 3.0,
       "objetos": [
         {"id": "cama_3", "verbos": ["SLEEP"]},
         {"id": "cocina_3", "verbos": ["EAT", "GATHER"]},
@@ -88,6 +102,8 @@
       "nombre_display": "Mercado de Bonpland",
       "tipo": "publico",
       "asiento_publico": true,
+      "permite_trabajo": true,
+      "x": 25.0, "y": 55.0, "radius": 5.0,
       "objetos": [
         {"id": "puesto_comida", "verbos": ["GATHER", "TRADE", "EAT"], "tiene_comida": true},
         {"id": "puesto_agua", "verbos": ["DRINK", "GATHER"], "tiene_agua": true},
@@ -100,6 +116,8 @@
       "nombre_display": "Parque Centenario",
       "tipo": "publico",
       "asiento_publico": true,
+      "permite_trabajo": false,
+      "x": 20.0, "y": 75.0, "radius": 8.0,
       "objetos": [
         {"id": "arbol_grande", "verbos": ["GATHER"], "recurso": "madera"},
         {"id": "banco_parque", "verbos": ["SIT", "TALK", "REFLECT"]},
