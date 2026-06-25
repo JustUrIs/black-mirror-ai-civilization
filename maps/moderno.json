@@ -1,0 +1,111 @@
+{
+  "id": "moderno",
+  "nombre_display": "CABA moderno",
+  "tech_level": "modern",
+  "biomas": ["urbano"],
+  "spawn_default": "plaza_italia",
+  "locations": [
+    {
+      "id": "plaza_italia",
+      "nombre_display": "Plaza Italia",
+      "tipo": "publico",
+      "asiento_publico": true,
+      "objetos": [
+        {"id": "banco_plaza", "verbos": ["SIT", "TALK"]},
+        {"id": "fuente", "verbos": ["DRINK"], "tiene_agua": true}
+      ],
+      "transitions": ["cafe_palermo", "parque_centenario", "biblioteca_nacional", "mercado_bonpland"]
+    },
+    {
+      "id": "cafe_palermo",
+      "nombre_display": "Café de Palermo",
+      "tipo": "publico",
+      "asiento_publico": true,
+      "objetos": [
+        {"id": "mesa_cafe", "verbos": ["SIT", "TALK", "WRITE_BOOK", "WRITE_LETTER"]},
+        {"id": "cafe_taza", "verbos": ["DRINK"], "es_comestible": false, "es_bebible": true, "calorias": 5},
+        {"id": "papel", "verbos": ["TAKE"], "tipo": "consumible"},
+        {"id": "lapiz", "verbos": ["TAKE"], "tipo": "consumible"},
+        {"id": "medialuna", "verbos": ["EAT"], "es_comestible": true, "calorias": 30}
+      ],
+      "transitions": ["plaza_italia", "depto_almagro_1", "depto_almagro_2"]
+    },
+    {
+      "id": "biblioteca_nacional",
+      "nombre_display": "Biblioteca Nacional",
+      "tipo": "publico",
+      "asiento_publico": true,
+      "objetos": [
+        {"id": "libro_borges_pre", "verbos": ["READ"], "contenido_ref": "preloaded_borges_short"},
+        {"id": "libro_platon_pre", "verbos": ["READ"], "contenido_ref": "preloaded_platon_apologia_fragment"},
+        {"id": "libro_marx_pre", "verbos": ["READ"], "contenido_ref": "preloaded_marx_manifesto_fragment"},
+        {"id": "papel", "verbos": ["TAKE"], "tipo": "consumible"},
+        {"id": "lapiz", "verbos": ["TAKE"], "tipo": "consumible"},
+        {"id": "mesa_lectura", "verbos": ["SIT", "WRITE_BOOK", "REFLECT"]}
+      ],
+      "transitions": ["plaza_italia", "parque_centenario"]
+    },
+    {
+      "id": "depto_almagro_1",
+      "nombre_display": "Departamento Almagro 1",
+      "tipo": "privado",
+      "asiento_publico": false,
+      "objetos": [
+        {"id": "cama_1", "verbos": ["SLEEP"]},
+        {"id": "cocina_1", "verbos": ["EAT", "GATHER"]},
+        {"id": "computadora_1", "verbos": ["WRITE_CODE"], "es_computadora": true},
+        {"id": "heladera_1", "verbos": ["GATHER"], "tiene_comida": true}
+      ],
+      "transitions": ["cafe_palermo", "depto_almagro_2"]
+    },
+    {
+      "id": "depto_almagro_2",
+      "nombre_display": "Departamento Almagro 2",
+      "tipo": "privado",
+      "asiento_publico": false,
+      "objetos": [
+        {"id": "cama_2", "verbos": ["SLEEP"]},
+        {"id": "cocina_2", "verbos": ["EAT", "GATHER"]},
+        {"id": "heladera_2", "verbos": ["GATHER"], "tiene_comida": true}
+      ],
+      "transitions": ["cafe_palermo", "depto_almagro_1", "depto_almagro_3"]
+    },
+    {
+      "id": "depto_almagro_3",
+      "nombre_display": "Departamento Almagro 3",
+      "tipo": "privado",
+      "asiento_publico": false,
+      "objetos": [
+        {"id": "cama_3", "verbos": ["SLEEP"]},
+        {"id": "cocina_3", "verbos": ["EAT", "GATHER"]},
+        {"id": "computadora_3", "verbos": ["WRITE_CODE"], "es_computadora": true},
+        {"id": "heladera_3", "verbos": ["GATHER"], "tiene_comida": true}
+      ],
+      "transitions": ["depto_almagro_2", "mercado_bonpland"]
+    },
+    {
+      "id": "mercado_bonpland",
+      "nombre_display": "Mercado de Bonpland",
+      "tipo": "publico",
+      "asiento_publico": true,
+      "objetos": [
+        {"id": "puesto_comida", "verbos": ["GATHER", "TRADE", "EAT"], "tiene_comida": true},
+        {"id": "puesto_agua", "verbos": ["DRINK", "GATHER"], "tiene_agua": true},
+        {"id": "puesto_papel", "verbos": ["GATHER", "TRADE"], "tipo": "consumible"}
+      ],
+      "transitions": ["plaza_italia", "depto_almagro_3", "parque_centenario"]
+    },
+    {
+      "id": "parque_centenario",
+      "nombre_display": "Parque Centenario",
+      "tipo": "publico",
+      "asiento_publico": true,
+      "objetos": [
+        {"id": "arbol_grande", "verbos": ["GATHER"], "recurso": "madera"},
+        {"id": "banco_parque", "verbos": ["SIT", "TALK", "REFLECT"]},
+        {"id": "laguna", "verbos": ["DRINK"], "tiene_agua": true}
+      ],
+      "transitions": ["plaza_italia", "biblioteca_nacional", "mercado_bonpland"]
+    }
+  ]
+}
