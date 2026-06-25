@@ -294,6 +294,46 @@ class TradeHandler:
         return f"trade {agent.id}->{target.id}: dio {ofrezco_kind}={ofrezco_val}, recibio {pido_kind}={pido_val}"
 
 
+def _flat_ontology(world_state) -> set[str]:
+    """Flatten ontology dict into single set of lowercase tokens.
+
+    Used for soft coherence checks. Tokens in `no_existe` are extracted
+    separately and treated as a denylist.
+    """
+    out: set[str] = set()
+    o = (world_state.world_ontology if world_state else None) or {}
+    for k, vals in o.items():
+        if k == "_doc" or k == "no_existe":
+            continue
+        if isinstance(vals, list):
+            for v in vals:
+                if isinstance(v, str):
+                    out.add(v.lower())
+    return out
+
+
+def _denylist_ontology(world_state) -> set[str]:
+    o = (world_state.world_ontology if world_state else None) or {}
+    vals = o.get("no_existe") or []
+    return {v.lower() for v in vals if isinstance(v, str)}
+
+
+def coherence_warning(content: str, world_state) -> str | None:
+    """Soft warning if content mentions tokens flagged as `no_existe` in world.
+    Returns None if no violation. Does NOT reject (preserves drama, metaphor).
+    """
+    if not content or not world_state:
+        return None
+    deny = _denylist_ontology(world_state)
+    if not deny:
+        return None
+    txt = content.lower()
+    hits = sorted(t for t in deny if t in txt)
+    if not hits:
+        return None
+    return f"(coherence soft-warn: contenido menciona {hits} que NO existen en este mundo)"
+
+
 PRELOADED_BOOK_CONTENT = {
     "preloaded_borges_short": (
         "Aquel hombre soñaba con un hombre. El soñado le respondió "
@@ -551,7 +591,8 @@ class WriteBookHandler:
             location_id=agent.ubicacion,
         )
         ctx.session.add(artifact)
-        return f"escribio el libro '{params['titulo'][:60]}' ({len(params['contenido_full'])} chars) en {agent.ubicacion}"
+        warn = coherence_warning(params["contenido_full"], ctx.world_state) or ""
+        return f"escribio el libro '{params['titulo'][:60]}' ({len(params['contenido_full'])} chars) en {agent.ubicacion} {warn}".strip()
 
 
 class WriteLetterHandler:
@@ -582,7 +623,8 @@ class WriteLetterHandler:
             location_id=agent.ubicacion,
         )
         ctx.session.add(artifact)
-        return f"escribio carta a {params['destinatario']} ({len(params['contenido'])} chars)"
+        warn = coherence_warning(params["contenido"], ctx.world_state) or ""
+        return f"escribio carta a {params['destinatario']} ({len(params['contenido'])} chars) {warn}".strip()
 
 
 class WriteCodeHandler:
@@ -751,7 +793,8 @@ class ProposeInstitutionHandler:
         )
         ctx.session.add(pi)
         ctx.session.flush()
-        return f"propuso institucion '{pi.nombre}' (id={pi.id}, necesita 3 ratify)"
+        warn = coherence_warning(params["texto_ley"], ctx.world_state) or ""
+        return f"propuso institucion '{pi.nombre}' (id={pi.id}, necesita 3 ratify) {warn}".strip()
 
 
 class ProposeRitualHandler:
@@ -783,7 +826,10 @@ class ProposeRitualHandler:
         )
         ctx.session.add(pr)
         ctx.session.flush()
-        return f"propuso ritual '{pr.nombre}' (id={pr.id}, necesita 3 ratify)"
+        # Coherencia: ritual texto + frecuencia combinados
+        combined = (params["descripcion"] or "") + " " + (params.get("frecuencia") or "")
+        warn = coherence_warning(combined, ctx.world_state) or ""
+        return f"propuso ritual '{pr.nombre}' (id={pr.id}, necesita 3 ratify) {warn}".strip()
 
 
 class RatifyHandler:

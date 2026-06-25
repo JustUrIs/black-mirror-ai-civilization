@@ -27,6 +27,14 @@ class WorldState(Base):
     recursos_base = Column(JSON, default=dict)
     conocimiento_publico = Column(JSON, default=list)
 
+    # Cycles (anti-bullshit: agentes solo pueden referenciar fenomenos que SI ocurren)
+    dia_noche_cycle_ticks = Column(Integer, default=2880)   # 24h reales
+    luna_cycle_ticks = Column(Integer, default=80640)        # ~28 dias x 2880
+
+    # Ontologia: que existe en este mundo. LLM prompt usa esto para evitar
+    # hablar de cosas inexistentes. WRITE_* soft-warn si menciona tokens fuera.
+    world_ontology = Column(JSON, default=dict)
+
 
 class Location(Base):
     __tablename__ = "locations"

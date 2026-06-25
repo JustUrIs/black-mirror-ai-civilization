@@ -6,6 +6,37 @@
   "spawn_default": "plaza_italia",
   "walk_speed_per_tick": 5.0,
   "_coords_note": "Coordenadas aproximadas (no a escala real). Unidades arbitrarias. Manhattan distance / walk_speed_per_tick = ticks de viaje.",
+  "dia_noche_cycle_ticks": 2880,
+  "luna_cycle_ticks": 80640,
+  "world_ontology": {
+    "_doc": "Define que cosas existen en este mundo. Agentes pueden referenciar SOLO estas. WRITE_* en contenido valida soft-warning. Mantener corto y representativo.",
+    "fenomenos_naturales": [
+      "luz", "oscuridad", "amanecer", "mediodia", "atardecer", "noche",
+      "luna_llena", "luna_nueva", "luna_creciente", "luna_menguante",
+      "lluvia", "viento", "calor", "frio", "silencio", "ruido"
+    ],
+    "estados_internos": [
+      "hambre", "sed", "energia", "sueno", "cansancio", "salud",
+      "miedo", "vergüenza", "alegria", "tristeza", "amor", "odio",
+      "soledad", "curiosidad", "duda", "certeza"
+    ],
+    "abstractos_sociales": [
+      "ley", "ritual", "voto", "promesa", "traicion", "amistad",
+      "alianza", "conflicto", "verdad", "mentira", "perdon",
+      "justicia", "injusticia", "trabajo", "descanso", "deuda"
+    ],
+    "objetos_disponibles": [
+      "pan", "comida", "agua", "papel", "lapiz", "libro", "carta",
+      "moneda", "gleam", "computadora", "codigo", "casa", "departamento",
+      "plaza", "cafe", "biblioteca", "mercado", "parque",
+      "banco_publico", "fuente", "puesto"
+    ],
+    "no_existe": [
+      "fuego", "metal_forjado", "agricultura", "caza",
+      "espadas", "carruajes", "magia", "dioses_concretos",
+      "naves_espaciales", "armas_de_fuego"
+    ]
+  },
   "locations": [
     {
       "id": "plaza_italia",

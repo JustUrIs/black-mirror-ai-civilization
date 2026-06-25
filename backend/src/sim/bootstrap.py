@@ -19,6 +19,10 @@ def bootstrap_world(map_id: str | None = None) -> None:
     map_id = map_id or os.getenv("MAP_ID", "moderno")
     with get_session() as s:
         ws = s.get(WorldState, 1)
+        # Pre-read map data so we can pull cycles/ontology
+        map_path = MAPS_DIR / f"{map_id}.json"
+        map_data = json.loads(map_path.read_text(encoding="utf-8")) if map_path.exists() else {}
+
         if ws is None:
             ws = WorldState(
                 id=1,
@@ -31,7 +35,19 @@ def bootstrap_world(map_id: str | None = None) -> None:
                 sink={"tax_per_tick": 0.1, "llm_call": 0.5},
                 recursos_base={"agua": 999999, "comida": 1000, "energia_electrica": 999999},
                 conocimiento_publico=["writing", "programming", "money", "voting"],
+                dia_noche_cycle_ticks=int(map_data.get("dia_noche_cycle_ticks", 2880)),
+                luna_cycle_ticks=int(map_data.get("luna_cycle_ticks", 80640)),
+                world_ontology=map_data.get("world_ontology", {}),
             )
+            s.add(ws)
+        else:
+            # Refresh ontology + cycles if map changed
+            if map_data.get("world_ontology") and not ws.world_ontology:
+                ws.world_ontology = map_data["world_ontology"]
+            if map_data.get("dia_noche_cycle_ticks"):
+                ws.dia_noche_cycle_ticks = int(map_data["dia_noche_cycle_ticks"])
+            if map_data.get("luna_cycle_ticks"):
+                ws.luna_cycle_ticks = int(map_data["luna_cycle_ticks"])
             s.add(ws)
 
         existing = {row.id for row in s.execute(select(Location)).scalars().all()}

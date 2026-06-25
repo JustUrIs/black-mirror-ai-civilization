@@ -53,7 +53,29 @@ RESPOND_TO_GOD(dilema_id: int, respuesta: str)  # >=10 chars
 """.strip()
 
 
+def _format_world_ontology(world_state) -> str:
+    """Render ontology as a compact bullet list for the prompt."""
+    o = (world_state.world_ontology if world_state else None) or {}
+    if not o:
+        return "(sin ontologia definida)"
+    parts = []
+    label_map = {
+        "fenomenos_naturales": "Fenomenos naturales",
+        "estados_internos": "Estados internos",
+        "abstractos_sociales": "Abstractos sociales",
+        "objetos_disponibles": "Objetos del mundo",
+        "no_existe": "NO EXISTE en este mundo (NO mencionar)",
+    }
+    for key, label in label_map.items():
+        vals = o.get(key) or []
+        if not vals:
+            continue
+        parts.append(f"  - {label}: {', '.join(vals)}")
+    return "\n".join(parts)
+
+
 def render_prompt(agent: Agent, trigger: Trigger, ctx) -> str:
+    from .time_of_day import from_world_state
     seed = agent.seed_json or {}
     moral = ", ".join(agent.moral_lines or seed.get("moral_lines", []))
     voice = seed.get("manera_de_hablar", "neutro")
@@ -70,6 +92,11 @@ def render_prompt(agent: Agent, trigger: Trigger, ctx) -> str:
         f"t{m.get('tick')}: {m.get('type')} {m.get('msg') or m.get('snippet') or ''}"
         for m in last_mem
     ) or "(sin memoria reciente)"
+
+    wt = from_world_state(ctx.world_state)
+    when = wt.describe()
+
+    ontology_block = _format_world_ontology(ctx.world_state)
 
     trigger_block = ""
     if trigger.kind == "crit_need":
@@ -93,7 +120,9 @@ Tu manera de hablar: {voice}
 Tus lineas morales: {moral}
 Tu conflicto principal: {agent.primary_conflict or seed.get('primary_conflict', '')}
 
-ESTADO ACTUAL (tick {ctx.tick}):
+CUANDO (tick {ctx.tick}): {when}
+
+ESTADO ACTUAL:
 - Ubicacion: {agent.ubicacion} ({loc.nombre_display if loc else '?'})
 - Objetos en location: {objetos}
 - Otros agentes aqui: {others_here}
@@ -104,6 +133,15 @@ ESTADO ACTUAL (tick {ctx.tick}):
 - Salud: {agent.salud:.0f}/100
 - Memoria reciente: {last_mem_str}
 {trigger_block}
+
+ONTOLOGIA DE ESTE MUNDO (que existe y que no — coherencia obligatoria):
+{ontology_block}
+
+REGLA DE COHERENCIA: cuando escribas (TALK, WRITE_BOOK, WRITE_LETTER,
+PROPOSE_INSTITUTION, PROPOSE_RITUAL, POST), referencia SOLO cosas que existen
+en este mundo. No hables de fuego, espadas, magia, naves espaciales, etc.
+Si necesitas describir algo abstracto (silencio, amor, justicia), usa los
+'abstractos_sociales' y 'estados_internos' listados.
 
 {ACTION_SCHEMA_HINT}
 
