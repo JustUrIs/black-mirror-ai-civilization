@@ -82,6 +82,7 @@ def dashboard():
       <li><a href="#log">/log</a></li>
       <li><a href="#log-rejects">/log?status=reject</a></li>
       <li><a href="#log-accepts">/log?status=accept</a></li>
+      <li><a href="#audit"><b>/audit (21 chequeos)</b></a></li>
     </ul>
     <p class="small">JSON puro:<br>
       <a href="/agents">/agents</a><br>
@@ -107,6 +108,7 @@ def dashboard():
     <section id="log"><h2>Action log (los 30 mas recientes)</h2><pre id="d-log">cargando...</pre></section>
     <section id="log-rejects"><h2>Action log — rejects (anti-bullshit en accion)</h2><p class="small">Cada reject es el GM impidiendo una accion bullshit (sin contenido, sin prereq, etc). Eso es lo que QUEREMOS ver.</p><pre id="d-log-rejects">cargando...</pre></section>
     <section id="log-accepts"><h2>Action log — accepts (acciones reales aplicadas)</h2><pre id="d-log-accepts">cargando...</pre></section>
+    <section id="audit"><h2>Audit report (4 categorias)</h2><p class="small">Coherence (artefactos vs ontologia), Personality (conducta vs seed), Sealed_world (sin influencia externa no autorizada), Capability (profundidad + diversidad). Status: PASS/WARN/FAIL/INFO.</p><pre id="d-audit">cargando...</pre></section>
   </main>
 </div>
 
@@ -133,6 +135,7 @@ load("d-dilemas", "/dilemas");
 load("d-log", "/log?limit=30");
 load("d-log-rejects", "/log?status=reject&limit=100");
 load("d-log-accepts", "/log?status=accept&limit=100");
+load("d-audit", "/audit");
 </script>
 </body>
 </html>"""
@@ -447,3 +450,9 @@ def admin_reseed_demo():
     """DEV-ONLY: wipe DB + reseed via demo_seed.reset_and_seed_demo()."""
     from ..sim.demo_seed import reset_and_seed_demo
     return reset_and_seed_demo()
+
+
+@app.get("/audit")
+def audit():
+    from ..audits.runner import run_all_audits
+    return run_all_audits().to_dict()

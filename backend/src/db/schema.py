@@ -89,6 +89,25 @@ class Agent(Base):
     last_reflect_tick = Column(Integer, default=0)
     sleeping_until_tick = Column(Integer, default=0)
 
+    # Profundidad emocional (mas alla de necesidades fisicas)
+    emotional_state = Column(JSON, default=lambda: {
+        "animo": 50.0,         # 0=deprimido, 100=eufórico
+        "esperanza": 50.0,     # 0=desesperación, 100=expectativa alta
+        "miedo": 0.0,          # 0=tranquilo, 100=panico
+        "soledad": 30.0,       # 0=lleno de compañia, 100=solitario absoluto
+        "dignidad": 70.0,      # 0=humillado, 100=integro
+        "verguenza": 0.0,      # 0=limpio, 100=cargado de culpa
+        "asombro": 30.0,       # 0=nada nuevo, 100=mundo recien descubierto
+    })
+
+    # Eventos significativos durables (no se pierden al rotar memoria_recent)
+    # Lista de {tick, type, summary, impacto: str}
+    personal_history = Column(JSON, default=list)
+
+    # Creencias sobre otros + mundo (mas rico que relaciones[id]=float)
+    # {agente_id: {confianza: -1..1, prediccion: str, ultima_actualizacion_tick: int}}
+    creencias_de_otros = Column(JSON, default=dict)
+
 
 class ActionLog(Base):
     """Anti-bullshit ledger: only applied actions get recorded.
