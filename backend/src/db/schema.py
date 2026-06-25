@@ -235,6 +235,23 @@ class DilemaResponse(Base):
     tick = Column(Integer, nullable=False)
 
 
+class WorldObject(Base):
+    """Objetos creados por el creador (piedras, arboles, comida).
+
+    Distintos de los objetos estaticos del map JSON: estos pueden aparecer
+    durante simulacion via /admin/spawn_object. Cada uno tiene created_by
+    (audit sealed-world).
+    """
+    __tablename__ = "world_objects"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    location_id = Column(String, ForeignKey("locations.id"), nullable=False)
+    object_type = Column(String, nullable=False)   # piedra|arbol_frutal|pan|...
+    created_by = Column(String, nullable=False)    # "creator" o agent_id
+    created_tick = Column(Integer, nullable=False)
+    state = Column(String, default="active")       # active|consumed|destroyed
+    metadata_json = Column(JSON, default=dict)
+
+
 class LLMCallLog(Base):
     __tablename__ = "llm_calls_log"
     id = Column(Integer, primary_key=True, autoincrement=True)

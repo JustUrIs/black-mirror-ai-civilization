@@ -5,11 +5,14 @@ from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 from dotenv import load_dotenv
 
+from pathlib import Path
+from fastapi.staticfiles import StaticFiles
+
 from ..db.session import init_db, get_session
 from ..db.schema import (
     WorldState, Agent, Location, ActionLog,
     TextArtifact, CodeArtifact, Institution, PendingInstitution,
-    Ritual, PendingRitual, Post, Dilema, DilemaResponse,
+    Ritual, PendingRitual, Post, Dilema, DilemaResponse, WorldObject,
 )
 from ..sim.bootstrap import bootstrap_world
 
@@ -456,3 +459,71 @@ def admin_reseed_demo():
 def audit():
     from ..audits.runner import run_all_audits
     return run_all_audits().to_dict()
+
+
+@app.get("/world_objects")
+def world_objects():
+    with get_session() as s:
+        rows = (
+            s.query(WorldObject)
+            .filter(WorldObject.state == "active")
+            .order_by(WorldObject.created_tick.desc())
+            .all()
+        )
+        return [
+            {
+                "id": w.id, "location_id": w.location_id,
+                "object_type": w.object_type, "created_by": w.created_by,
+                "created_tick": w.created_tick, "state": w.state,
+                "metadata": w.metadata_json,
+            } for w in rows
+        ]
+
+
+@app.post("/admin/spawn_object")
+def admin_spawn_object(payload: dict):
+    """Creator-injected world object (rocks, trees, food).
+
+    Body: {"location_id": str, "object_type": str, "metadata"?: dict}
+    Auditable: created_by="creator", action_log entry SPAWN_OBJECT.
+    """
+    location_id = payload.get("location_id")
+    object_type = payload.get("object_type")
+    metadata = payload.get("metadata") or {}
+    if not location_id or not object_type:
+        return {"error": "location_id + object_type required"}
+    with get_session() as s:
+        loc = s.get(Location, location_id)
+        if loc is None:
+            return {"error": f"location '{location_id}' no existe"}
+        ws = s.get(WorldState, 1)
+        tick = (ws.tick_actual or 0) if ws else 0
+        wo = WorldObject(
+            location_id=location_id,
+            object_type=object_type,
+            created_by="creator",
+            created_tick=tick,
+            state="active",
+            metadata_json=metadata,
+        )
+        s.add(wo)
+        s.add(ActionLog(
+            tick=tick, agent_id="creator", action_type="SPAWN_OBJECT",
+            params={"location_id": location_id, "object_type": object_type,
+                    "metadata": metadata},
+            status="accept",
+            side_effect_summary=f"creator inyecto '{object_type}' en {location_id}",
+        ))
+        s.commit()
+        s.refresh(wo)
+        return {
+            "id": wo.id, "location_id": wo.location_id,
+            "object_type": wo.object_type, "created_tick": wo.created_tick,
+            "created_by": wo.created_by,
+        }
+
+
+# Static frontend mount (must be LAST so it doesn't shadow other routes)
+STATIC_DIR = Path(__file__).resolve().parents[3] / "frontend" / "static"
+if STATIC_DIR.exists():
+    app.mount("/ui", StaticFiles(directory=str(STATIC_DIR), html=True), name="ui")

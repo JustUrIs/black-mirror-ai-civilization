@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Eidolon · civilizacion en vivo</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <h1 class="brand">EIDOLON</h1>
+    <span class="sep">·</span>
+    <span id="time-banner" class="time-banner">cargando…</span>
+    <span class="sep">·</span>
+    <span id="tick-display" class="dim">tick —</span>
+    <div class="grow"></div>
+    <button id="btn-creator" class="pill pill-warn" title="Inyectar objetos">CREATOR ▾</button>
+    <button id="btn-audit" class="pill" title="Audit health">AUDIT —</button>
+  </header>
+
+  <section class="map-pane">
+    <svg id="map" preserveAspectRatio="xMidYMid meet"></svg>
+    <div id="map-tooltip" class="tooltip hidden"></div>
+  </section>
+
+  <aside class="side-pane">
+    <section class="panel panel-agents">
+      <header class="panel-header">
+        <span class="panel-title">AGENTES</span>
+        <span id="agents-count" class="dim">—</span>
+      </header>
+      <div id="agents-list" class="panel-body"></div>
+    </section>
+
+    <section class="panel panel-obra">
+      <header class="panel-header">
+        <span class="panel-title">OBRA</span>
+        <nav class="tabs">
+          <button class="tab active" data-tab="libros">LIB</button>
+          <button class="tab" data-tab="leyes">LEY</button>
+          <button class="tab" data-tab="posts">POSTS</button>
+          <button class="tab" data-tab="rituales">RIT</button>
+        </nav>
+      </header>
+      <div id="obra-body" class="panel-body"></div>
+    </section>
+
+    <section class="panel panel-log">
+      <header class="panel-header">
+        <span class="panel-title">ACTION LOG</span>
+        <span id="log-counts" class="dim">—</span>
+      </header>
+      <div id="log-body" class="panel-body log-body"></div>
+    </section>
+  </aside>
+
+  <footer class="bottombar">
+    <span class="dim">Eidolon v0.3.0-day3 · sealed world · MIT</span>
+    <span class="grow"></span>
+    <span id="summary-line" class="dim">—</span>
+  </footer>
+
+  <!-- AUDIT DROPDOWN -->
+  <div id="audit-panel" class="popover hidden">
+    <header class="popover-header">Audit checks</header>
+    <div id="audit-content" class="popover-body"></div>
+  </div>
+
+  <!-- CREATOR DROPDOWN -->
+  <div id="creator-panel" class="popover hidden">
+    <header class="popover-header">Inyectar objeto al mundo</header>
+    <div class="popover-body">
+      <label class="creator-label">Location</label>
+      <select id="creator-location" class="creator-input"></select>
+      <label class="creator-label">Tipo</label>
+      <div class="creator-buttons">
+        <button data-type="piedra"       class="obj-btn">🪨 piedra</button>
+        <button data-type="arbol_frutal" class="obj-btn">🌳 árbol</button>
+        <button data-type="pan"          class="obj-btn">🥖 pan</button>
+        <button data-type="agua_extra"   class="obj-btn">💧 agua</button>
+        <button data-type="libro_extraño" class="obj-btn">📕 libro extraño</button>
+      </div>
+      <p class="creator-note dim">Cada spawn queda en action_log con created_by=creator. Agentes en esa location reciben observation trigger al próximo tick.</p>
+    </div>
+  </div>
+
+  <!-- AGENT MODAL -->
+  <div id="agent-modal" class="modal hidden">
+    <div class="modal-backdrop" data-close="1"></div>
+    <article class="modal-card" id="agent-modal-card"></article>
+  </div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
