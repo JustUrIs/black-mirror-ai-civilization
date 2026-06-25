@@ -12,7 +12,6 @@ from ..db.schema import Agent, Location
 @dataclass
 class Action:
     type: str
-    agent_id: str
     params: dict = field(default_factory=dict)
 
 

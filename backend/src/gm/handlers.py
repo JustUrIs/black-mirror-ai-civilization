@@ -75,7 +75,8 @@ class TalkHandler:
             "from": agent.id,
             "msg": contenido,
         })
-        target.memoria_recent = mem[-30:]
+        from ..config import MEMORIA_RECENT_CAP
+        target.memoria_recent = mem[-MEMORIA_RECENT_CAP:]
         ctx.session.add(target)
         return f"hablo a {target_id}: '{contenido[:60]}'"
 

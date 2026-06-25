@@ -30,31 +30,30 @@ class GameMaster:
             world_state=ws,
         )
 
-    def validate_and_apply(self, action: Action, ctx: WorldContext) -> Result:
-        agent = ctx.agents_by_id.get(action.agent_id)
-        if agent is None:
-            return self._record(ctx, action, Reject(f"agente '{action.agent_id}' no existe o no esta vivo."))
+    def validate_and_apply(self, agent: Agent, action: Action, ctx: WorldContext) -> Result:
+        if not agent.alive:
+            return self._record(ctx, agent.id, action, Reject(f"agente '{agent.id}' no esta vivo."))
 
         handler = self.handlers.get(action.type)
         if handler is None:
-            return self._record(ctx, action, Reject(f"accion '{action.type}' no implementada (handlers: {list(self.handlers.keys())})."))
+            return self._record(ctx, agent.id, action, Reject(f"accion '{action.type}' no implementada (handlers: {list(self.handlers.keys())})."))
 
         ok, err = handler.check_prereqs(agent, action.params, ctx)
         if not ok:
-            return self._record(ctx, action, Reject(err))
+            return self._record(ctx, agent.id, action, Reject(err))
 
         try:
             summary = handler.apply(agent, action.params, ctx)
         except Exception as e:
             log.exception("apply failed: %s", e)
-            return self._record(ctx, action, Reject(f"declaraste '{action.type}' pero la aplicacion fallo: {e}"))
+            return self._record(ctx, agent.id, action, Reject(f"declaraste '{action.type}' pero la aplicacion fallo: {e}"))
 
-        return self._record(ctx, action, Accept(summary))
+        return self._record(ctx, agent.id, action, Accept(summary))
 
-    def _record(self, ctx: WorldContext, action: Action, result: Result) -> Result:
+    def _record(self, ctx: WorldContext, agent_id: str, action: Action, result: Result) -> Result:
         ctx.session.add(ActionLog(
             tick=ctx.tick,
-            agent_id=action.agent_id,
+            agent_id=agent_id,
             action_type=action.type,
             params=action.params,
             status="accept" if isinstance(result, Accept) else "reject",

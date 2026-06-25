@@ -21,7 +21,7 @@ NEED_DECAY_PER_TICK = {
     "hambre": 1.0,
     "energia": -0.5,   # negative = energy drops slower than hunger
     "sed": 1.5,
-    "sueño": 0.8,
+    "sueno": 0.8,
     "social": 0.3,
 }
 
@@ -95,7 +95,7 @@ class WorldLoop:
                 action = policy.next_action()
                 if action is None:
                     continue
-                result = self.gm.validate_and_apply(action, ctx)
+                result = self.gm.validate_and_apply(agent, action, ctx)
                 log.info("tick=%d agent=%s action=%s result=%s",
                          tick, agent.id, action.type, type(result).__name__)
 

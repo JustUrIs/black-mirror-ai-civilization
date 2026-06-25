@@ -50,7 +50,7 @@ class Agent(Base):
     ubicacion = Column(String, ForeignKey("locations.id"), nullable=False)
     inventario = Column(JSON, default=list)
     necesidades = Column(JSON, default=lambda: {
-        "hambre": 0.0, "energia": 100.0, "sed": 0.0, "sueño": 0.0, "social": 50.0
+        "hambre": 0.0, "energia": 100.0, "sed": 0.0, "sueno": 0.0, "social": 50.0
     })
     salud = Column(Float, default=100.0)
     gleam = Column(Float, default=10.0)

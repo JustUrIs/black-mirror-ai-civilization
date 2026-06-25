@@ -33,7 +33,7 @@ def spawn_test_agent() -> None:
             ],
             necesidades={
                 "hambre": 20.0, "energia": 90.0, "sed": 10.0,
-                "sueño": 5.0, "social": 50.0,
+                "sueno": 5.0, "social": 50.0,
             },
             salud=100.0,
             gleam=10.0,
@@ -63,25 +63,24 @@ def build_test_policy() -> ScriptedAgentPolicy:
     """
     queue = [
         # MOVE valid: plaza_italia → cafe_palermo
-        Action(type="MOVE", agent_id="test_agent_1", params={"destino": "cafe_palermo"}),
+        Action(type="MOVE", params={"destino": "cafe_palermo"}),
         # EAT valid: medialuna_inicial in inventory
-        Action(type="EAT", agent_id="test_agent_1", params={"item": "medialuna_inicial"}),
+        Action(type="EAT", params={"item": "medialuna_inicial"}),
         # MOVE INVALID: from cafe_palermo no direct transition to parque_centenario
-        Action(type="MOVE", agent_id="test_agent_1", params={"destino": "parque_centenario"}),
+        Action(type="MOVE", params={"destino": "parque_centenario"}),
         # TALK INVALID: no other agent in cafe_palermo
-        Action(type="TALK", agent_id="test_agent_1",
-               params={"agente": "ghost", "contenido": "hola que tal todo bien?"}),
+        Action(type="TALK", params={"agente": "ghost", "contenido": "hola que tal todo bien?"}),
         # EAT INVALID: item already consumed
-        Action(type="EAT", agent_id="test_agent_1", params={"item": "medialuna_inicial"}),
+        Action(type="EAT", params={"item": "medialuna_inicial"}),
         # MOVE valid back to plaza
-        Action(type="MOVE", agent_id="test_agent_1", params={"destino": "plaza_italia"}),
+        Action(type="MOVE", params={"destino": "plaza_italia"}),
         # MOVE valid plaza → mercado
-        Action(type="MOVE", agent_id="test_agent_1", params={"destino": "mercado_bonpland"}),
+        Action(type="MOVE", params={"destino": "mercado_bonpland"}),
         # MOVE valid mercado → parque
-        Action(type="MOVE", agent_id="test_agent_1", params={"destino": "parque_centenario"}),
+        Action(type="MOVE", params={"destino": "parque_centenario"}),
         # MOVE valid parque → plaza
-        Action(type="MOVE", agent_id="test_agent_1", params={"destino": "plaza_italia"}),
+        Action(type="MOVE", params={"destino": "plaza_italia"}),
         # extra valid MOVE to fill 10 ticks
-        Action(type="MOVE", agent_id="test_agent_1", params={"destino": "cafe_palermo"}),
+        Action(type="MOVE", params={"destino": "cafe_palermo"}),
     ]
     return ScriptedAgentPolicy(agent_id="test_agent_1", queue=queue)
