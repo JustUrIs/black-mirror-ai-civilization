@@ -115,6 +115,7 @@ export function renderLog(container, logs) {
   }
   container.innerHTML = logs.map((l) => {
     const detail = l.status === "accept" ? l.side_effect_summary : l.error_nl;
+    const rationale = (l.params || {})._rationale || "";
     return `
       <div class="log-row ${l.status}">
         <div class="log-row-head">
@@ -122,6 +123,7 @@ export function renderLog(container, logs) {
           <span class="log-agent" style="color:${colorFor(l.agent_id)}">${escapeHTML(l.agent_id)}</span>
           <span class="log-action ${l.status}">${escapeHTML(l.action_type)}</span>
         </div>
+        ${rationale ? `<div class="log-rationale" title="rationale">💭 ${escapeHTML(rationale)}</div>` : ""}
         <div class="log-detail">${escapeHTML(detail || "")}</div>
       </div>
     `;

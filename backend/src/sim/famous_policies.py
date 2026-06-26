@@ -215,11 +215,14 @@ class CyclicPolicy(ScriptedAgentPolicy):
 def build_all_policies() -> dict:
     """Build policies for famous agents.
 
-    - Si ANTHROPIC_API_KEY presente y USE_LLM_POLICY!=0 → LLMDrivenPolicy
-      (decisiones reales de Claude Sonnet).
-    - Sino → CyclicPolicy (scripted, survival-safe).
+    Priority:
+    1. ANTHROPIC_API_KEY + USE_LLM_POLICY=1 → LLMDrivenPolicy (Claude Sonnet).
+    2. USE_CYCLIC_POLICY=1 → legacy CyclicPolicy (rigid scripted cycles).
+    3. Default → SmartPolicy: reactive heuristic. Acts on state (hambre/sed/
+       energia), reacts to triggers, expresses personality.
 
-    Variable USE_LLM_POLICY=0 fuerza scripted incluso con key (debug/cost).
+    SmartPolicy emits `_rationale` in every Action so the UI can show the
+    internal monologue even without an LLM.
     """
     use_llm = (
         os.getenv("ANTHROPIC_API_KEY")
@@ -234,5 +237,11 @@ def build_all_policies() -> dict:
             aid: LLMDrivenPolicy(agent_id=aid, gateway=gateway)
             for aid in CYCLES.keys()
         }
-    log.info("Scripted CyclicPolicy ACTIVE (no ANTHROPIC_API_KEY or USE_LLM_POLICY=0)")
-    return {aid: CyclicPolicy(aid) for aid in CYCLES.keys()}
+
+    if os.getenv("USE_CYCLIC_POLICY", "0") == "1":
+        log.info("Legacy CyclicPolicy ACTIVE (USE_CYCLIC_POLICY=1)")
+        return {aid: CyclicPolicy(aid) for aid in CYCLES.keys()}
+
+    from .smart_policy import build_smart_policies
+    log.info("SmartPolicy ACTIVE (reactive heuristic; rationale visible per action)")
+    return build_smart_policies()

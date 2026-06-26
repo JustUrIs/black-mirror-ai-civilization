@@ -74,6 +74,13 @@ def spawn_famous() -> list[str]:
                 alive=True,
                 last_reflect_tick=0,
                 sleeping_until_tick=0,
+                emotional_state={
+                    "animo": 50.0, "esperanza": 50.0, "miedo": 0.0,
+                    "soledad": 30.0, "dignidad": 70.0, "verguenza": 0.0,
+                    "asombro": 30.0,
+                },
+                personal_history=[],
+                creencias_de_otros={},
             )
             s.add(agent)
             spawned.append(sid)

@@ -135,13 +135,16 @@ function relationsList(rels) {
 
 function timeline(logs) {
   if (!logs || !logs.length) return `<div class="empty-state">sin acciones</div>`;
-  return `<div class="timeline">${logs.map((l) => `
+  return `<div class="timeline">${logs.map((l) => {
+    const rationale = (l.params || {})._rationale || "";
+    return `
     <div class="tl-row ${l.status}">
       <span class="tl-tick">t${l.tick}</span>
       <span class="tl-type">${escapeHTML(l.action_type)}</span>
       <span class="tl-detail">${escapeHTML(l.status === "accept" ? l.side_effect_summary : l.error_nl)}</span>
+      ${rationale ? `<div class="tl-rationale">💭 ${escapeHTML(rationale)}</div>` : ""}
     </div>
-  `).join("")}</div>`;
+  `;}).join("")}</div>`;
 }
 
 function interactionsList(logs, agentId) {

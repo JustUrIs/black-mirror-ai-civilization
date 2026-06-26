@@ -300,6 +300,7 @@ body::after {
 .log-action.accept { color: var(--fg-ok); }
 .log-action.reject { color: var(--fg-warn); }
 .log-detail { color: var(--fg-dim); padding-left: 8px; margin-top: 1px; font-size: 10px; opacity: 0.8; }
+.log-rationale { color: #d6c79a; padding-left: 8px; margin-top: 1px; font-size: 10px; font-style: italic; opacity: 0.95; }
 
 /* ========== Bottom bar ========== */
 .bottombar {
@@ -426,6 +427,8 @@ body::after {
 .tl-row .tl-type { color: var(--fg-accent); width: 90px; }
 .tl-row .tl-detail { color: var(--fg-dim); flex: 1; }
 .tl-row.reject .tl-type { color: var(--fg-warn); }
+.tl-rationale { color: #d6c79a; font-size: 10px; font-style: italic; margin-top: 2px; flex-basis: 100%; padding-left: 132px; opacity: 0.95; }
+.tl-row { flex-wrap: wrap; }
 
 .relation-row { display: flex; justify-content: space-between; font-size: 11px; padding: 3px 0; border-bottom: 1px solid var(--bg-border); }
 .relation-row:last-child { border-bottom: none; }

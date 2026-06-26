@@ -233,6 +233,9 @@ def agents():
                 "relaciones": a.relaciones,
                 "memoria_recent": a.memoria_recent,
                 "alive": a.alive,
+                "emotional_state": a.emotional_state,
+                "personal_history": a.personal_history,
+                "intencion_actual": a.intencion_actual,
             }
             for a in rows
         ]
@@ -261,6 +264,9 @@ def agent_detail(agent_id: str):
             "intencion_actual": a.intencion_actual,
             "welfare_birch": a.welfare_birch,
             "alive": a.alive,
+            "emotional_state": a.emotional_state,
+            "personal_history": a.personal_history,
+            "creencias_de_otros": a.creencias_de_otros,
         }
 
 
@@ -602,7 +608,8 @@ def admin_throw_object(payload: dict):
         s.add(ActionLog(
             tick=tick, agent_id="creator", action_type="THROW",
             params={"objeto_id": obj_id, "agente": target_id,
-                    "object_type": wo.object_type},
+                    "object_type": wo.object_type,
+                    "location_id": target.ubicacion},
             status="accept",
             side_effect_summary=(
                 f"creator lanzo '{wo.object_type}' contra {target_id} "
